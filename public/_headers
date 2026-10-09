@@ -1,0 +1,50 @@
+# Netlify reads this file and applies these headers to every response. Vite
+# copies everything in public/ into dist/ untouched, so this ships as-is.
+#
+# Scoped to what this app actually loads: its own bundle, the iFluids
+# Supabase project (REST + Realtime websocket), and Google Fonts. Nothing
+# else is allowed to load, connect, or frame this site.
+#
+# style-src keeps 'unsafe-inline': React sets most of this app's styling via
+# inline style={{...}} objects. script-src deliberately does NOT get
+# 'unsafe-inline'/'unsafe-eval' — that's where CSP's real XSS protection
+# value is, and the built bundle (Vite output, all <script type="module">)
+# doesn't need either.
+#
+# worker-src 'self' blob: — without this, worker-src has no directive of its
+# own and falls back to script-src, which does not cover blob:. The task-
+# completion confetti (canvas-confetti, called with its default useWorker:
+# true) spins up a Web Worker from a blob: URL to animate off the main
+# thread; CSP was silently blocking that worker outright, so the celebration
+# never rendered at all — not a canvas-confetti bug, a gap in this policy.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://fqijjnvgyhhpzjytyazs.supabase.co wss://fqijjnvgyhhpzjytyazs.supabase.co; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()
+
+# Vite names every JS/CSS chunk with a content hash (index-B2hDUpxN.css, ...)
+# — a new deploy always produces a new filename, so there's no staleness
+# risk in caching these as hard as possible: a browser that already has
+# index-B2hDUpxN.css will NEVER need a different file at that exact URL.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# These aren't content-hashed (same filename across deploys), so nothing
+# close to "immutable" — but they change rarely enough that a week-long
+# cache still meaningfully cuts repeat-visit load time (skips the ~300-400ms
+# round-trip a 304 revalidation costs) without risking a stale asset
+# lingering long after an actual update ships.
+/favicon.png
+  Cache-Control: public, max-age=604800
+/favicon.svg
+  Cache-Control: public, max-age=604800
+/logo.png
+  Cache-Control: public, max-age=604800
+/icons.svg
+  Cache-Control: public, max-age=604800
+/world-map.svg
+  Cache-Control: public, max-age=604800
+/theme-init.js
+  Cache-Control: public, max-age=604800

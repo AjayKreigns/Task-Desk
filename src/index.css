@@ -1,0 +1,2938 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --font-heading: 'Outfit', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  /* Premium Amethyst Palette (Light) */
+  --bg-main: #f4f4f5;
+  --bg-card: rgba(255, 255, 255, 0.75);
+  /* Opaque counterpart of --bg-card, for floating panels that sit over page
+     content (dropdown menus). --bg-card is 75% alpha, which reads as frosted
+     glass on a card but lets a table show straight through a popover. */
+  --bg-card-solid: #ffffff;
+  --border-glass: rgba(228, 228, 231, 0.8);
+  --bg-glass-blur: blur(16px);
+  --bg-sidebar: #ffffff;
+  --bg-sidebar-hover: #f4f4f5;
+  --bg-sidebar-active: #ede9fe;
+  --bg-topbar: rgba(255, 255, 255, 0.8);
+  --bg-input: rgba(244, 244, 245, 0.8);
+  --bg-hover: rgba(244, 244, 245, 0.6);
+  --bg-badge: #f4f4f5;
+  /* Same grey as --bg-input but fully opaque. Table headers are
+     position:sticky, so a translucent fill let scrolled rows show straight
+     through the header text — see .data-table thead th. */
+  --bg-table-head: #f4f4f5;
+
+  /* Accents - Premium Violet */
+  --primary: #7c3aed;
+  --primary-light: #a78bfa;
+  --primary-dark: #6d28d9;
+  --primary-bg: #ede9fe;
+  --secondary: #0d9488;
+  --secondary-light: #2dd4bf;
+  --secondary-bg: #ccfbf1;
+  --success: #16a34a;
+  --success-light: #4ade80;
+  --success-bg: #dcfce7;
+  --warning: #ea580c;
+  --warning-light: #fb923c;
+  --warning-bg: #ffedd5;
+  --danger: #e11d48;
+  /* Completes the set — the other three accents already have a -light shade
+     for KPI card top-bars (see .kpi-card.red). Like the others, shared across
+     both themes rather than re-declared in dark mode. */
+  --danger-light: #fb7185;
+  --danger-bg: #ffe4e6;
+  --info: #0284c7;
+  --info-bg: #e0f2fe;
+  /* Completes the -light set for KPI card top-bars (see .kpi-card.info) —
+     same shared-across-themes convention as the others. Coincidentally the
+     same value dark mode uses for --info itself (#38bdf8), so it reads as a
+     lighter step of the same light-theme blue rather than an unrelated hue. */
+  --info-light: #38bdf8;
+
+  /* Text */
+  --text-primary: #18181b;
+  --text-secondary: #3f3f46;
+  --text-muted: #71717a;
+  --text-light: #a1a1aa;
+  --text-sidebar: #18181b;
+  --text-sidebar-muted: #71717a;
+  --text-white: #ffffff;
+
+  /* Borders */
+  --border: #e4e4e7;
+  --border-light: #f4f4f5;
+  --border-focus: #a78bfa;
+
+  /* Recharts CartesianGrid lines — needs its own token rather than reusing
+     --border: a near-white gridline reads as a subtle dotted line against a
+     dark chart background, but the same near-white value is invisible
+     against this (light-mode) white card — so light and dark mode need
+     genuinely different values, not just an alpha tweak. Deliberately a
+     couple of shades past --border's own value (#e4e4e7) — that matched
+     the border color exactly but still read as too faint once actually
+     dotted (strokeDasharray breaks it into small dashes, which always
+     look lighter than a solid line of the same color would). */
+  --chart-grid: #cbd5e1;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-2xl: 48px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Professional Subtle Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05);
+  --shadow-primary: 0 4px 14px 0 rgba(124, 58, 237, 0.2);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+
+  /* === GLASSY BUTTON SYSTEM (light) ===
+     Four ingredients, reused by every button variant:
+
+     1. SURFACE - a 150deg gradient. The signature move is that the MIDDLE stop
+        brightens sharply on hover while the two ends stay put, so a sheen
+        appears to sweep through the face rather than the whole button just
+        getting lighter.
+     2. EDGE - a gradient bezel painted into the border box: bright at the top,
+        dark through the lower-middle, bright again at the very bottom. That
+        top-lit/bottom-bounced ring is what reads as thick glass.
+     3. RIM - hard inset highlights, no blur, catching the top and bottom edges.
+     4. LIFT - many low-alpha shadow layers with growing offset and blur. The
+        falloff is much softer than one or two layers can produce, which is what
+        keeps the button from looking stuck onto the page.
+
+     Colour-bearing variants (primary, success, danger) override only SURFACE and
+     keep the same edge/rim/lift, so the whole set reads as one material. */
+  --glass-neutral: linear-gradient(150deg, #f2f2f4 0%, #eaeaee 50%, #e3e3e8 100%);
+  --glass-neutral-hi: linear-gradient(150deg, #f9f9fb 0%, #ffffff 50%, #eeeef2 100%);
+  --glass-primary: linear-gradient(150deg, #8b5cf6 0%, #7c3aed 50%, #6b26d9 100%);
+  --glass-primary-hi: linear-gradient(150deg, #9d76f8 0%, #b79cfb 50%, #7c3aed 100%);
+  --glass-success: linear-gradient(150deg, #22c55e 0%, #16a34a 50%, #128040 100%);
+  --glass-success-hi: linear-gradient(150deg, #43d878 0%, #6ee79b 50%, #16a34a 100%);
+  --glass-danger: linear-gradient(150deg, #fff1f2 0%, #ffe4e6 50%, #fecdd3 100%);
+  --glass-danger-hi: linear-gradient(150deg, #fff7f8 0%, #ffffff 50%, #ffdde1 100%);
+  /* The two above are the PALE danger surface (tinted backgrounds, badges).
+     These are the FILLED red used by .btn-danger — a destructive confirm
+     button needs a saturated fill, and it needs its own -hi so hovering
+     brightens the red instead of laying the neutral near-white sheen over it.
+     Like --glass-primary/--glass-success these are deliberately not
+     overridden in dark mode, so the colour does not drift between themes. */
+  --glass-danger-filled: linear-gradient(150deg, #f43f5e 0%, #e11d48 50%, #be123c 100%);
+  --glass-danger-filled-hi: linear-gradient(150deg, #fb7185 0%, #fda4af 50%, #e11d48 100%);
+  /* Sidebar's selected row. Tinted rather than a filled violet chip: it sits
+     behind the label text, which stays violet and must remain readable. */
+  --glass-nav-active: linear-gradient(150deg, #f4f0ff 0%, #ebe5fe 50%, #ded4fd 100%);
+
+  --glass-edge: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(0, 0, 0, 0.05) 32%,
+    rgba(0, 0, 0, 0.11) 73%,
+    rgba(255, 255, 255, 0.65) 100%);
+  --glass-edge-on-colour: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(0, 0, 0, 0.10) 32%,
+    rgba(0, 0, 0, 0.22) 73%,
+    rgba(255, 255, 255, 0.30) 100%);
+
+  --glass-rim: inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+               inset 0 -1px 0 0 rgba(255, 255, 255, 0.4);
+  --glass-rim-on-colour: inset 0 1px 0 0 rgba(255, 255, 255, 0.38),
+                         inset 0 -1px 0 0 rgba(255, 255, 255, 0.12);
+
+  /* Eight layers, offsets and blurs growing geometrically - a compressed version
+     of the reference's falloff. Cheap: shadows do not force layout. */
+  --glass-lift: 0 0.4px 0.5px -0.4px rgba(0, 0, 0, 0.035),
+                0 1px 1.2px -0.8px rgba(0, 0, 0, 0.035),
+                0 2.1px 2.4px -1.2px rgba(0, 0, 0, 0.035),
+                0 4.2px 4.7px -1.6px rgba(0, 0, 0, 0.03),
+                0 8.5px 9.5px -2px rgba(0, 0, 0, 0.03),
+                0 17px 19px -2.5px rgba(0, 0, 0, 0.025);
+  --glass-lift-hover: 0 0.6px 0.8px -0.4px rgba(0, 0, 0, 0.04),
+                      0 1.6px 2px -0.8px rgba(0, 0, 0, 0.04),
+                      0 3.4px 4px -1.2px rgba(0, 0, 0, 0.04),
+                      0 7px 8.5px -1.6px rgba(0, 0, 0, 0.04),
+                      0 14px 17px -2px rgba(0, 0, 0, 0.035),
+                      0 30px 34px -2.5px rgba(0, 0, 0, 0.03);
+  /* Pressed: the face sinks. Taken from the reference component verbatim. */
+  --glass-press: inset 3px 3px 3px 0 rgba(0, 0, 0, 0.16),
+                 inset 0 0 1px 2px rgba(0, 0, 0, 0.08),
+                 inset 1px 1px 0 0 rgba(0, 0, 0, 0.1);
+
+  /* Shared height for anything that sits in a toolbar row. The segmented switch
+     used to compute to 39px against the buttons' 38px, and because those rows are
+     align-items:center the extra pixel split into a half-pixel above and below -
+     enough to make the glass bezels visibly fail to line up. Pinning both to one
+     token means padding or font changes cannot reintroduce the drift. */
+  --control-h: 38px;
+
+  /* Larger translucent glass for KPI cards. Kept semi-transparent (unlike the
+     buttons) so the moving background still reads through the card, which is what
+     made these feel like glass in the first place. */
+  --glass-card: linear-gradient(150deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.82) 50%, rgba(248, 248, 251, 0.74) 100%);
+  --glass-card-hi: linear-gradient(150deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.97) 50%, rgba(252, 252, 254, 0.88) 100%);
+
+  /* Table row hover. This cannot reuse --bg-hover: that token is a near-white grey,
+     and composited over a white card it shifted a row by about 5/255 - roughly 2%
+     of the background's brightness, i.e. invisible. The same token over a dark card
+     shifts by ~37% of its brightness, which is why the hover only showed in dark
+     mode. Perceived change scales with the background, so light mode needs a
+     genuinely different value rather than the same one. A violet tint keeps it on
+     the accent palette instead of just making the row grey. */
+  --row-hover: rgba(124, 58, 237, 0.09);
+
+  /* Layout */
+  --sidebar-width: 270px;
+  --topbar-height: 64px;
+}
+
+/* === DARK MODE === */
+[data-theme="dark"] {
+  --bg-main: #09090b;
+  --bg-card: rgba(24, 24, 27, 0.75);
+  --bg-card-solid: #18181b;
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --bg-glass-blur: blur(16px);
+  --bg-sidebar: #09090b;
+  --bg-sidebar-hover: rgba(255,255,255,0.05);
+  --bg-sidebar-active: rgba(124,58,237,0.15);
+  --bg-topbar: rgba(24,24,27,0.75);
+  --bg-input: rgba(39, 39, 42, 0.6);
+  --bg-hover: rgba(39, 39, 42, 0.4);
+  --bg-badge: #27272a;
+  --bg-table-head: #27272a;
+  --primary: #a78bfa;
+  --primary-dark: #c4b5fd;
+  --primary-bg: rgba(124,58,237,0.15);
+  --secondary: #2dd4bf;
+  --secondary-bg: rgba(13,148,136,0.15);
+  --success: #4ade80;
+  --success-bg: rgba(22,163,74,0.15);
+  --warning: #fb923c;
+  --warning-bg: rgba(234,88,12,0.15);
+  --danger: #fb7185;
+  --danger-bg: rgba(225,29,72,0.15);
+  --info: #38bdf8;
+  --info-bg: rgba(14,165,233,0.15);
+  --text-primary: #fafafa;
+  --text-secondary: #d4d4d8;
+  --text-muted: #a1a1aa;
+  --text-light: #71717a;
+  --text-sidebar: #fafafa;
+  --text-sidebar-muted: #a1a1aa;
+  --border: #27272a;
+  --border-light: #27272a;
+  --border-focus: #a78bfa;
+  /* Same near-white value dark mode already rendered before this token
+     existed — kept identical so dark mode's charts look exactly the same;
+     only light mode's value (in :root) actually needed to change. */
+  --chart-grid: #f1f5f9;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5);
+  --shadow-primary: 0 4px 14px 0 rgba(167, 139, 250, 0.2);
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.2);
+
+  /* === GLASSY BUTTON SYSTEM (dark) ===
+     The mechanics are identical; only the material changes. On a near-black page
+     a white rim would blow out, so the highlights drop to a tenth of their light
+     strength and the bezel leans on a dark underside instead of a bright top.
+     The filled primary and success gradients stay as they are in light mode so
+     the brand colour does not drift between themes. */
+  --glass-neutral: linear-gradient(150deg, #2b2b32 0%, #24242a 50%, #1d1d22 100%);
+  --glass-neutral-hi: linear-gradient(150deg, #35353e 0%, #43434f 50%, #26262d 100%);
+  --glass-danger: linear-gradient(150deg, #3d1a22 0%, #34151d 50%, #2b1018 100%);
+  --glass-danger-hi: linear-gradient(150deg, #4d2029 0%, #5c2632 50%, #35161e 100%);
+  --glass-nav-active: linear-gradient(150deg, rgba(139, 92, 246, 0.3) 0%, rgba(124, 58, 237, 0.22) 50%, rgba(109, 40, 217, 0.12) 100%);
+  --glass-card: linear-gradient(150deg, rgba(39, 39, 45, 0.88) 0%, rgba(30, 30, 35, 0.8) 50%, rgba(24, 24, 28, 0.74) 100%);
+  --glass-card-hi: linear-gradient(150deg, rgba(52, 52, 60, 0.92) 0%, rgba(62, 62, 72, 0.88) 50%, rgba(32, 32, 38, 0.8) 100%);
+  /* Lighter and violet-leaning so the row lifts off a near-black card. */
+  --row-hover: rgba(167, 139, 250, 0.14);
+
+  --glass-edge: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.03) 32%,
+    rgba(0, 0, 0, 0.34) 73%,
+    rgba(255, 255, 255, 0.07) 100%);
+  --glass-edge-on-colour: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(0, 0, 0, 0.14) 32%,
+    rgba(0, 0, 0, 0.3) 73%,
+    rgba(255, 255, 255, 0.16) 100%);
+
+  --glass-rim: inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+               inset 0 -1px 0 0 rgba(255, 255, 255, 0.04);
+  --glass-rim-on-colour: inset 0 1px 0 0 rgba(255, 255, 255, 0.3),
+                         inset 0 -1px 0 0 rgba(255, 255, 255, 0.08);
+
+  --glass-lift: 0 0.4px 0.5px -0.4px rgba(0, 0, 0, 0.2),
+                0 1px 1.2px -0.8px rgba(0, 0, 0, 0.2),
+                0 2.1px 2.4px -1.2px rgba(0, 0, 0, 0.2),
+                0 4.2px 4.7px -1.6px rgba(0, 0, 0, 0.18),
+                0 8.5px 9.5px -2px rgba(0, 0, 0, 0.16),
+                0 17px 19px -2.5px rgba(0, 0, 0, 0.14);
+  --glass-lift-hover: 0 0.6px 0.8px -0.4px rgba(0, 0, 0, 0.24),
+                      0 1.6px 2px -0.8px rgba(0, 0, 0, 0.24),
+                      0 3.4px 4px -1.2px rgba(0, 0, 0, 0.24),
+                      0 7px 8.5px -1.6px rgba(0, 0, 0, 0.22),
+                      0 14px 17px -2px rgba(0, 0, 0, 0.2),
+                      0 30px 34px -2.5px rgba(0, 0, 0, 0.18);
+  --glass-press: inset 3px 3px 3px 0 rgba(0, 0, 0, 0.5),
+                 inset 0 0 1px 2px rgba(0, 0, 0, 0.3),
+                 inset 1px 1px 0 0 rgba(0, 0, 0, 0.35);
+}
+[data-theme="dark"] .sidebar {
+  background: #06090f;
+}
+[data-theme="dark"] .filter-group select option,
+[data-theme="dark"] .form-select option {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html { font-size: 15px; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-main);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.sidebar, .topbar, .card, .main-content, .btn, .btn-icon, .form-input, .form-select, select, input, .badge, th, td, tr {
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: none;
+}
+
+input, select, textarea {
+  font-family: var(--font-body);
+  font-size: 0.933rem;
+  outline: none;
+}
+
+/* === SCROLLBAR === */
+/* One fixed color everywhere, in both themes — deliberately not a
+   theme-swapped token, since the ask was a single consistent scrollbar
+   color across the whole app, not a light/dark-aware one. Hover uses a
+   deeper step in the same lavender family (matching the app's existing
+   violet --primary) rather than dropping the hover feedback entirely. */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #7C3AED; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #6D28D9; }
+
+/* === APP LAYOUT === */
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* === SIDEBAR === */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--bg-sidebar);
+  color: var(--text-sidebar);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  z-index: 100;
+  border-right: 1px solid var(--border);
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  overflow-y: auto;
+  /* Without this, the collapse button's negative right offset (see
+     .sidebar-collapse-btn) counted as horizontal overflow, and per the CSS
+     overflow spec, setting only overflow-y forces overflow-x to 'auto' too —
+     that's what put a horizontal scrollbar along the bottom of the sidebar. */
+  overflow-x: hidden;
+}
+
+.sidebar-brand {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.sidebar-brand h1 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.sidebar-brand h1 .brand-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.sidebar-brand p {
+  font-size: 0.75rem;
+  color: var(--text-sidebar-muted);
+  margin-top: 4px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-nav .nav-section-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-sidebar-muted);
+  padding: 16px 12px 6px;
+  font-weight: 600;
+}
+
+/* Nav rows use the same glass material as the buttons, with one difference: the
+   chip lives entirely on ::after rather than on the element itself. A nav row is
+   transparent at rest, and a gradient cannot be faded in - gradients are not
+   interpolatable - so the whole chip (surface, rim and lift) is carried by a
+   pseudo-element whose OPACITY is transitioned instead. The selected row pins
+   that same chip to opacity 1 and swaps in the violet surface. */
+.nav-item {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  color: var(--text-sidebar-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none !important;
+  transition: color 0.2s ease, transform 0.18s ease;
+}
+
+.nav-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: var(--glass-neutral);
+  /* The buttons take their bezel from a border-box gradient, which a
+     pseudo-element cannot inherit. A 1px inset ring reads the same at this size. */
+  box-shadow: var(--glass-rim), var(--glass-lift),
+              inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+
+.sidebar-nav a:hover {
+  color: var(--text-sidebar);
+  transform: translateY(-1px);
+}
+.sidebar-nav a:hover::after { opacity: 1; }
+
+.sidebar-nav a:active { transform: translateY(0); }
+
+.sidebar-nav a.active {
+  color: var(--primary);
+  font-weight: 600;
+  transform: none;
+}
+.sidebar-nav a.active::after {
+  background-image: var(--glass-nav-active);
+  opacity: 1;
+  box-shadow: var(--glass-rim), var(--glass-lift),
+              inset 0 0 0 1px rgba(124, 58, 237, 0.16);
+}
+
+/* Selected-row marker, kept on the right edge where this dashboard already had
+   it. It was a `border-right`, which cannot coexist with the rounded glass chip
+   without flattening that corner, so it is a positioned bar instead. */
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  background: var(--primary);
+  border-radius: 3px 0 0 3px;
+}
+
+[data-theme="dark"] .nav-item::after {
+  box-shadow: var(--glass-rim), var(--glass-lift),
+              inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+[data-theme="dark"] .sidebar-nav a.active::after {
+  box-shadow: var(--glass-rim), var(--glass-lift),
+              inset 0 0 0 1px rgba(167, 139, 250, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item,
+  .nav-item::after { transition: none; }
+  .sidebar-nav a:hover { transform: none; }
+  .sidebar,
+  .main-content,
+  .bg-network { transition: none; }
+}
+
+/* This block was originally written for an always-dark sidebar (hardcoded
+   rgba(255,255,255,...) fills and #fff text) but --bg-sidebar is white in light
+   mode, so the un-tokenized values have been swapped for theme tokens below —
+   same layout, same sizes, correct in both themes. */
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-sidebar-hover);
+}
+
+.sidebar-user .user-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* Lets the name ellipsize instead of forcing the row wider than the 270px
+   sidebar — without min-width:0 a long name or an email-as-name fallback would
+   push the sign-out button out of the row entirely. */
+.sidebar-user-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-user .user-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-sidebar);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-user .user-role {
+  font-size: 0.7rem;
+  color: var(--text-sidebar-muted);
+  text-transform: capitalize;
+}
+
+/* Fills the space between the nav list and the sign-out footer with the
+   signed-in person's own numbers for the current calendar month — same
+   figures Dashboard's own KPI cards use ("Scheduled" = every task assigned,
+   "Completed" = the subset done), just scoped to one person and one month
+   instead of the team and whatever period another tab has selected. */
+.sidebar-stats-wrap {
+  margin: 12px 12px 0;
+}
+
+.sidebar-stats-caption {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-sidebar-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0 4px 6px;
+}
+
+.sidebar-stats {
+  display: flex;
+  align-items: stretch;
+  padding: 14px 8px;
+  border-radius: var(--radius-md);
+  background: var(--bg-sidebar-hover);
+}
+
+.sidebar-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.sidebar-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-sidebar);
+  line-height: 1;
+}
+
+.sidebar-stat-label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text-sidebar-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sidebar-stat-divider {
+  width: 1px;
+  background: var(--border);
+  margin: 0 6px;
+}
+
+.sidebar-collapsed .sidebar-stats-wrap {
+  display: none;
+}
+
+/* Combined with .btn-icon (two classes, not one) so this wins the cascade
+   regardless of source order — .btn-icon's own color/:hover rules sit later in
+   this file and, at equal specificity, would otherwise silently override the
+   hover-to-red below. */
+.btn-icon.sidebar-signout {
+  flex-shrink: 0;
+  color: var(--text-sidebar-muted);
+}
+.btn-icon.sidebar-signout:hover { color: var(--danger); }
+
+/* === SIDEBAR COLLAPSE === */
+/* Overriding --sidebar-width on the shared ancestor is what makes one flag
+   resize the sidebar, shift .main-content's margin and .bg-network's inset
+   together — all three already read that one variable (see :root above), so
+   nothing else needs a collapsed-specific rule of its own. */
+.app-layout.sidebar-collapsed {
+  --sidebar-width: 76px;
+}
+
+.sidebar-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 14px 0;
+}
+
+.sidebar-collapsed .sidebar-toolbar {
+  justify-content: center;
+}
+
+/* Slide-toggle version of the collapse control (adapted from a Uiverse.io
+   checkbox toggle, recoloured onto this app's own accent gradient and with
+   the decorative face dots dropped). The wrapper itself carries the gradient;
+   `label` is an opaque neutral layer sitting on top of it that only turns
+   transparent once the checkbox is checked, revealing the gradient beneath —
+   that swap, not a background change, is what makes on/off read as on/off. */
+.sidebar-toggle-switch {
+  --size: 16px;
+  position: relative;
+  line-height: 0;
+  border-radius: calc(2.2 * var(--size));
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  flex-shrink: 0;
+}
+
+.sidebar-toggle-switch input[type="checkbox"],
+.sidebar-toggle-switch label {
+  appearance: none;
+  display: inline-block;
+  border-radius: calc(2.2 * var(--size));
+  border: 0;
+  transition: 0.3s ease-in-out;
+  box-sizing: border-box;
+  cursor: pointer;
+  margin: 0;
+}
+
+.sidebar-toggle-switch label {
+  width: calc(2.2 * var(--size));
+  height: var(--size);
+  background: var(--border);
+  display: block;
+}
+
+.sidebar-toggle-switch input[type="checkbox"] {
+  position: absolute;
+  z-index: 1;
+  width: calc(0.8 * var(--size));
+  height: calc(0.8 * var(--size));
+  top: calc(0.1 * var(--size));
+  left: calc(0.1 * var(--size));
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  outline: none;
+}
+
+.sidebar-toggle-switch input[type="checkbox"]:checked {
+  left: calc(1.3 * var(--size));
+}
+
+.sidebar-toggle-switch input[type="checkbox"]:checked + label {
+  background: transparent;
+}
+
+.sidebar-collapsed .sidebar-brand h1,
+.sidebar-collapsed .sidebar-brand p,
+.sidebar-collapsed .nav-section-label,
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .sidebar-user-meta {
+  display: none;
+}
+
+.sidebar-collapsed .nav-item {
+  justify-content: center;
+}
+
+.sidebar-collapsed .sidebar-user {
+  justify-content: center;
+  padding: 10px 6px;
+}
+
+@media (max-width: 768px) {
+  .sidebar-collapse-btn {
+    display: none;
+  }
+}
+
+/* === MAIN CONTENT === */
+.main-content {
+  flex: 1;
+  /* A flex item's implicit min-width is "auto" (its content's own natural
+     minimum width), NOT 0 — flex-shrink alone doesn't override that floor.
+     Without this, any wide content anywhere inside a page (an un-scrolled
+     table, a control row that doesn't wrap) sets a minimum width for this
+     whole flex item that the real viewport can be narrower than, forcing
+     the entire layout to stretch and scroll sideways on mobile instead of
+     letting that one thing scroll or wrap internally. This is why Dashboard
+     (nothing that wide anywhere in it) never showed the bug while every
+     page with a data table did.
+     https://www.w3.org/TR/css-flexbox-1/#min-size-auto */
+  min-width: 0;
+  margin-left: var(--sidebar-width);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  /* Matches .sidebar's own transition timing — without this, the sidebar
+     animated its width smoothly while the content area (which reads the same
+     --sidebar-width variable for its margin) snapped over instantly, so the
+     two visibly fell out of sync mid-collapse. */
+  transition: margin-left 0.3s ease;
+}
+
+/* === TOPBAR === */
+.topbar {
+  height: var(--topbar-height);
+  background: var(--bg-topbar);
+  /* -webkit- first, standard second — NOT the other way round. With the
+     standard property declared first, the production CSS minifier treated
+     it as redundant against the -webkit- one and stripped it entirely,
+     leaving only -webkit-backdrop-filter in the shipped bundle — which
+     Chrome does not reliably honor on its own, so the topbar lost its blur
+     (background stayed, glass effect didn't) on the deployed site even
+     though local dev-mode CSS injection never showed the bug. Confirmed via
+     DevTools on the live site: backdrop-filter computed to "no matching
+     property" at all. This order is also the objectively correct pattern
+     for a prefixed fallback regardless of the minifier bug — it lets a
+     browser that understands both let the standard property win by normal
+     cascade order. */
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-lg);
+  gap: var(--spacing-md);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  box-shadow: var(--shadow-sm);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-left h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Hidden until the 768px breakpoint. Its glass surface comes from the grouped
+   topbar-chip rule further down. */
+.mobile-menu-btn {
+  display: none;
+}
+
+/* === FILTER CONTROLS === */
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.filter-group select {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.filter-group select option {
+  background: #fff;
+  color: var(--text-primary);
+}
+
+/* === CONTENT AREA === */
+.content-area {
+  padding: var(--spacing-lg);
+  flex: 1;
+}
+
+/* === PAGE HEADER === */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.page-header h3 {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+/* === WELCOME BANNER (Dashboard) === */
+/* Same brand gradient as the sidebar avatars and the theme switch — --primary/
+   --secondary/--shadow-primary already resolve to appropriate dark-mode values
+   under [data-theme="dark"], so this needs no separate dark-mode override. */
+.welcome-banner {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: var(--text-white);
+  border-radius: var(--radius-lg);
+  padding: 22px 28px;
+  margin-bottom: var(--spacing-lg);
+  box-shadow: var(--shadow-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.welcome-banner-greeting {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.welcome-banner-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.welcome-banner-time {
+  /* Keeps the seconds column from jittering the layout as digit widths change. */
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-white);
+}
+
+/* === HEARTBEAT INDICATOR (cloud-sync status, lives inside .welcome-banner) === */
+/* Near-opaque, not a light frosted overlay — the banner's gradient runs from
+   --primary (purple) to --secondary (teal/green), and a mostly-transparent
+   chip lets the tone color (green in particular, on the teal side) blend into
+   the gradient behind it instead of standing out from it. A solid light
+   backdrop guarantees the same contrast regardless of where the pill lands on
+   the gradient, the same way the old badge's solid --success-bg/--warning-bg
+   fill always worked regardless of page background. */
+.heartbeat-pill {
+  /* Both the pill's own fill and the sweep overlays below reference this one
+     value, so they always match exactly regardless of where the pill sits on
+     the banner's gradient — see the .heartbeat-fade-in/-out comment. */
+  --heartbeat-pill-bg: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: var(--heartbeat-pill-bg);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  font-size: 0.78rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.heartbeat-pill.tone-success { color: var(--success); }
+.heartbeat-pill.tone-warning { color: var(--warning); }
+.heartbeat-pill.tone-danger { color: var(--danger); }
+
+.heartbeat-track {
+  width: 70px;
+  height: 34px;
+  overflow: hidden;
+  position: relative;
+}
+
+.heartbeat-track svg {
+  display: block;
+}
+
+/* The "sweep" ECG effect: two panels shaped like the pill's own background
+   sit on top of the (always fully-drawn, static) waveform. .heartbeat-fade-in
+   starts covering it completely, then shrinks away from the right edge,
+   revealing the trace left-to-right. .heartbeat-fade-out starts off-screen
+   left, waits, then slides in over the same trace left-to-right, erasing it
+   just before the cycle restarts — together reading as a live trace being
+   continuously drawn and swept away, the way a real ECG monitor animates. */
+.heartbeat-fade-in {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--heartbeat-pill-bg);
+  animation: heartbeat-sweep-in 2.5s linear infinite;
+}
+
+.heartbeat-fade-out {
+  position: absolute;
+  top: 0;
+  right: -120%;
+  width: 120%;
+  height: 100%;
+  background: var(--heartbeat-pill-bg);
+  animation: heartbeat-sweep-out 2.5s linear infinite;
+}
+
+@keyframes heartbeat-sweep-in {
+  0% { width: 100%; }
+  50% { width: 0; }
+  100% { width: 0; }
+}
+
+@keyframes heartbeat-sweep-out {
+  0% { left: -120%; }
+  30% { left: -120%; }
+  100% { left: 0; }
+}
+
+/* 'connecting': the same trace, statically fully visible and gently
+   breathing, rather than sweeping — signals "trying", not a false "confirmed
+   connected". */
+.heartbeat-wave.is-idle {
+  animation: heartbeat-breathe 3s ease-in-out infinite;
+}
+
+@keyframes heartbeat-breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heartbeat-fade-in,
+  .heartbeat-fade-out,
+  .heartbeat-wave.is-idle {
+    animation: none;
+  }
+  .heartbeat-fade-in,
+  .heartbeat-fade-out {
+    display: none;
+  }
+}
+
+/* === CARDS === */
+/* No backdrop-filter here, deliberately. Measured on the Schedule tab (a
+   full-width card ~94 rows tall): blurring that area forced the theme switch down
+   to 11fps with 233ms stalls, because a fading backdrop makes the blur re-sample
+   every frame. Dropping it took the same switch to 30fps. The blur was also very
+   nearly invisible - it sat over a near-uniform page background - so the card
+   keeps its translucency via --bg-card and loses nothing but the cost.
+   .kpi-card keeps its blur: those are small, and the glass there is the point. */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg), 0 8px 24px rgba(124, 58, 237, 0.15);
+  border-color: rgba(124, 58, 237, 0.5);
+  background: var(--bg-hover);
+}
+
+.card-body { padding: var(--spacing-lg); }
+
+/* === KPI CARDS === */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Same glass material as the buttons, at card scale: a 150deg gradient surface, a
+   gradient bezel painted into the border box, a rim highlight and the layered
+   lift. The surface stays translucent and keeps backdrop-filter, so the moving
+   background still reads through - that is what made these feel like glass before,
+   and dropping it would flatten them into plain panels.
+
+   ::after is already the coloured accent stripe along the top, so the hover sheen
+   goes on ::before instead. */
+.kpi-card {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background-image: var(--glass-card), var(--glass-edge);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  /* -webkit- first, standard second — see the .topbar comment above for why. */
+  -webkit-backdrop-filter: var(--bg-glass-blur);
+  backdrop-filter: var(--bg-glass-blur);
+  box-shadow: var(--glass-rim), var(--glass-lift);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  overflow: hidden;
+}
+
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--glass-card-hi);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.kpi-card.blue::after { background: linear-gradient(90deg, var(--primary), var(--primary-light)); }
+.kpi-card.green::after { background: linear-gradient(90deg, var(--success), var(--success-light)); }
+.kpi-card.purple::after { background: linear-gradient(90deg, var(--secondary), var(--secondary-light)); }
+.kpi-card.amber::after { background: linear-gradient(90deg, var(--warning), var(--warning-light)); }
+/* Red completes the set. Added so Lead Center's "Not Converted" card can use
+   the same colour as its "Not Converted" table badge — an amber card above a
+   red badge for the same thing reads as two different states. */
+.kpi-card.red::after { background: linear-gradient(90deg, var(--danger), var(--danger-light)); }
+/* Blue completes the set for "carried forward" stats — matches the info
+   badge color already used for carry-forward elsewhere (Schedule/
+   TasksCompleted's CF badge, MonthlyReport's status label). */
+.kpi-card.info::after { background: linear-gradient(90deg, var(--info), var(--info-light)); }
+
+.kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--glass-rim), var(--glass-lift-hover),
+              0 12px 32px -8px rgba(124, 58, 237, 0.22);
+}
+
+/* Only Dashboard's 4 count cards get this — Lead Center's and Monthly
+   Report's KPI cards share the same .kpi-card styling but aren't wired to a
+   click handler, so they deliberately don't get a pointer cursor implying
+   they are. The lift-on-hover above already applies to every kpi-card
+   either way; this just adds the cue that THIS one actually does something. */
+.kpi-card.clickable { cursor: pointer; }
+
+.kpi-card:hover::before { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-card,
+  .kpi-card::before { transition: none; }
+  .kpi-card:hover { transform: none; }
+}
+
+.kpi-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-icon.blue { background: var(--primary-bg); color: var(--primary); }
+.kpi-icon.green { background: var(--success-bg); color: var(--success); }
+.kpi-icon.purple { background: var(--secondary-bg); color: var(--secondary); }
+.kpi-icon.amber { background: var(--warning-bg); color: var(--warning); }
+.kpi-icon.red { background: var(--danger-bg); color: var(--danger); }
+.kpi-icon.info { background: var(--info-bg); color: var(--info); }
+
+.kpi-content { flex: 1; }
+
+.kpi-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.kpi-value {
+  font-family: var(--font-heading);
+  font-size: 1.9rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+/* === BUTTONS ===
+   Every button in the app is built from the glass tokens defined at the top of
+   this file. See the comment there for what each ingredient does.
+
+   HOW THE TWO BACKGROUNDS WORK: the border is transparent and two background
+   layers are painted at once - the surface clipped to the padding box, the bezel
+   clipped to the border box. That paints a gradient into the 1px border, which a
+   plain `border-color` cannot do.
+
+   WHY THE SHEEN IS A PSEUDO-ELEMENT: gradients are not interpolatable, so
+   swapping background-image on hover snaps. The hover surface therefore lives on
+   ::after and its opacity is transitioned instead, which does animate. It sits
+   at z-index -1 inside the button's own stacking context, so it covers the
+   surface but stays behind the label. */
+.btn {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  min-height: var(--control-h);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background-image: var(--glass-neutral), var(--glass-edge);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  color: var(--text-secondary);
+  box-shadow: var(--glass-rim), var(--glass-lift);
+  transition: box-shadow 0.24s ease, transform 0.18s ease, color 0.2s ease;
+}
+
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: var(--glass-neutral-hi);
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--glass-rim), var(--glass-lift-hover);
+}
+
+.btn:hover::after { opacity: 1; }
+
+/* Pressed: drop back to the page and sink the face. The sheen is cleared so the
+   inset shadows read against the darker base surface. */
+.btn:active {
+  transform: translateY(0);
+  box-shadow: var(--glass-press);
+  transition-duration: 0.06s;
+}
+
+.btn:active::after { opacity: 0; }
+
+.btn:disabled,
+.btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+  box-shadow: var(--glass-rim), var(--glass-lift);
+}
+
+.btn:disabled::after,
+.btn[disabled]::after { opacity: 0; }
+
+/* Colour-bearing variants swap only the surface and the on-colour bezel/rim. */
+.btn-primary {
+  background-image: var(--glass-primary), var(--glass-edge-on-colour);
+  color: #fff;
+  box-shadow: var(--glass-rim-on-colour), var(--glass-lift);
+}
+.btn-primary::after { background-image: var(--glass-primary-hi); }
+.btn-primary:hover {
+  box-shadow: var(--glass-rim-on-colour), var(--glass-lift-hover),
+              0 6px 20px -6px rgba(124, 58, 237, 0.5);
+}
+
+.btn-secondary {
+  background-image: var(--glass-neutral), var(--glass-edge);
+  color: var(--text-secondary);
+}
+.btn-secondary:hover { color: var(--text-primary); }
+
+.btn-success {
+  background-image: var(--glass-success), var(--glass-edge-on-colour);
+  color: #fff;
+  box-shadow: var(--glass-rim-on-colour), var(--glass-lift);
+}
+.btn-success::after { background-image: var(--glass-success-hi); }
+.btn-success:hover {
+  box-shadow: var(--glass-rim-on-colour), var(--glass-lift-hover),
+              0 6px 20px -6px rgba(22, 163, 74, 0.45);
+}
+
+/* Danger stays a tinted glass rather than a solid red fill: these are mostly
+   Delete controls sitting inside dense rows, and a saturated block would pull
+   more attention than the destructive action warrants. */
+.btn-danger {
+  background-image: var(--glass-danger), var(--glass-edge);
+  color: var(--danger);
+}
+.btn-danger::after { background-image: var(--glass-danger-hi); }
+.btn-danger:hover {
+  box-shadow: var(--glass-rim), var(--glass-lift-hover),
+              0 6px 18px -6px rgba(225, 29, 72, 0.28);
+}
+
+/* The emphatic sibling of .btn-danger above, for the confirm button in a
+   delete dialog and the Lead Center bulk-delete bar — places where the
+   destructive action IS the subject of the screen, so the tinted treatment
+   would under-sell it.
+
+   This exists as a class rather than inline styles because inline
+   `background: var(--danger)` (how these buttons used to be written) leaves
+   .btn's own ::after sheen in place — and that sheen is --glass-neutral-hi, a
+   near-WHITE gradient which, being a negative-z-index pseudo-element, paints
+   on top of the button's background. On the translucent grey buttons it was
+   designed for that is invisible; over a solid red fill it washed the button
+   out to near-white on hover, so the button appeared to vanish under the
+   cursor. Overriding ::after with a brighter red (same pattern as
+   .btn-primary / .btn-success) is what makes hover read as "brighter" rather
+   than "faded". */
+.btn-danger-solid {
+  background-image: var(--glass-danger-filled), var(--glass-edge-on-colour);
+  color: #fff;
+  box-shadow: var(--glass-rim-on-colour), var(--glass-lift);
+}
+.btn-danger-solid::after { background-image: var(--glass-danger-filled-hi); }
+.btn-danger-solid:hover {
+  color: #fff;
+  box-shadow: var(--glass-rim-on-colour), var(--glass-lift-hover),
+              0 6px 20px -6px rgba(225, 29, 72, 0.5);
+}
+
+/* Compact variant opts out of the toolbar height - it is used inline in table
+   rows and modal footers, not in the toolbar row that --control-h aligns. */
+.btn-sm {
+  padding: 6px 14px;
+  min-height: 0;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+}
+
+/* Square-ish glass chip for icon-only actions - the closest match to the
+   reference component's own proportions. */
+.btn-icon {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1px solid transparent;
+  background-image: var(--glass-neutral), var(--glass-edge);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  color: var(--text-muted);
+  box-shadow: var(--glass-rim), var(--glass-lift);
+  transition: box-shadow 0.24s ease, transform 0.18s ease, color 0.2s ease;
+}
+
+.btn-icon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: var(--glass-neutral-hi);
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+
+.btn-icon:hover {
+  color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--glass-rim), var(--glass-lift-hover);
+}
+.btn-icon:hover::after { opacity: 1; }
+.btn-icon:active {
+  transform: translateY(0);
+  box-shadow: var(--glass-press);
+  transition-duration: 0.06s;
+}
+.btn-icon:active::after { opacity: 0; }
+
+/* Tinted icon buttons keep the neutral glass and colour only the glyph, so rows
+   of actions stay visually even. Both `text-danger` and `text-primary` were used
+   in the markup but never defined anywhere in this stylesheet - they were dead
+   classes rendering as plain muted grey. Giving them the meaning their names
+   imply makes destructive and primary row actions readable at a glance. */
+.btn-icon.text-danger,
+.btn-icon.text-danger:hover { color: var(--danger); }
+
+.btn-icon.text-primary,
+.btn-icon.text-primary:hover { color: var(--primary); }
+
+/* Keyboard focus has to survive the gradient backgrounds, so it is an outline
+   (drawn outside the border box) rather than a box-shadow that the bezel would
+   compete with. */
+.btn:focus-visible,
+.btn-icon:focus-visible,
+.seg-btn:focus-visible,
+.theme-toggle:focus-visible,
+.notification-bell:focus-visible,
+.mobile-menu-btn:focus-visible,
+.notif-action-btn:focus-visible,
+.toast-close:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* === SEGMENTED GLASS SWITCH ===
+   Used by the Monthly / Full Year switch and the dashboard's Overall / Monthly
+   switch. The track is recessed and the selected segment is a raised glass chip,
+   which is the same material logic as the buttons above read in reverse. */
+.seg {
+  display: inline-flex;
+  align-items: stretch;
+  height: var(--control-h);
+  padding: 3px;
+  gap: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.015) 100%),
+                    var(--glass-edge);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .seg {
+  background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.2) 100%),
+                    var(--glass-edge);
+  box-shadow: inset 0 1px 3px 0 rgba(0, 0, 0, 0.5);
+}
+
+.seg-btn {
+  position: relative;
+  isolation: isolate;
+  /* No vertical padding: the parent has a fixed height and stretches these to
+     fill it, so padding here would fight that and reintroduce a height mismatch. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  /* --text-secondary, not --text-muted: muted measures 4.40:1 against the
+     recessed track, just under the 4.5:1 AA floor for normal text. The selected
+     segment is distinguished by its violet chip, not by dimming the other one. */
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s ease, box-shadow 0.24s ease;
+}
+
+.seg-btn:hover { color: var(--text-primary); }
+
+.seg-btn.is-active {
+  background-image: var(--glass-primary), var(--glass-edge-on-colour);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  color: #fff;
+  box-shadow: var(--glass-rim-on-colour),
+              0 1px 2px 0 rgba(0, 0, 0, 0.1),
+              0 3px 8px -2px rgba(124, 58, 237, 0.4);
+}
+
+.seg-btn.is-active:hover { color: #fff; }
+
+/* The glass still reads correctly without the sheen fade or the 1px lift, so
+   under reduced motion those are dropped and the hover state simply snaps.
+   Colour and shadow feedback are kept - removing them would cost affordance. */
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .btn-icon,
+  .btn::after,
+  .btn-icon::after,
+  .seg-btn,
+  .theme-toggle,
+  .notification-bell,
+  .mobile-menu-btn,
+  .theme-toggle::after,
+  .notification-bell::after,
+  .mobile-menu-btn::after,
+  .notif-action-btn,
+  .notif-action-btn::after,
+  .toast-close {
+    transition: none;
+  }
+
+  .btn:hover,
+  .btn:active,
+  .btn-icon:hover,
+  .btn-icon:active,
+  .theme-toggle:hover,
+  .theme-toggle:active,
+  .notification-bell:hover,
+  .notification-bell:active,
+  .mobile-menu-btn:hover,
+  .mobile-menu-btn:active,
+  .notif-action-btn:hover,
+  .notif-action-btn:active {
+    transform: none;
+  }
+}
+
+/* === FORM INPUTS === */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.form-input, .form-select {
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.form-input:focus, .form-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  background: var(--bg-card);
+}
+
+.form-input::placeholder { color: var(--text-light); }
+
+/* === TABLE === */
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Sticky header. Two things here are load-bearing rather than cosmetic:
+   the background must be OPAQUE (--bg-input is only 80% alpha in light mode
+   and 60% in dark, which let rows scrolling underneath show through the
+   header text and read as overlapping content), and it needs a z-index so
+   the header paints above cell content in every case rather than relying on
+   sticky's default positioned-element ordering. Kept well below .topbar's
+   z-index: 40 so a page-scrolled table never covers the topbar. */
+.data-table thead th {
+  background: var(--bg-table-head);
+  padding: 12px 16px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.data-table tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.data-table tbody tr {
+  transition: background 0.15s;
+}
+
+.data-table tbody tr:hover {
+  background: var(--row-hover);
+}
+
+/* === BADGES === */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.badge-pending { background: var(--warning-bg); color: var(--warning); }
+.badge-in-progress { background: var(--warning-bg); color: var(--warning); }
+.badge-completed { background: var(--success-bg); color: var(--success); }
+.badge-success { background: var(--success-bg); color: var(--success); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); }
+.badge-high { background: var(--danger-bg); color: var(--danger); }
+.badge-medium { background: var(--warning-bg); color: var(--warning); }
+.badge-low { background: var(--info-bg); color: var(--info); }
+.badge-info { background: var(--info-bg); color: var(--info); }
+.badge-danger { background: var(--danger-bg); color: var(--danger); }
+
+/* === LEAD CENTER bulk selection === */
+/* Appears only while something is selected, directly above the table, so the
+   count and the destructive action sit next to the rows they apply to. */
+.lead-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  background: var(--primary-bg);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+}
+
+.lead-bulk-count {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-right: auto;
+}
+
+/* === LEAD CENTER export menu === */
+.lead-export-wrapper { position: relative; }
+
+.lead-export-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 320px;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: 60;
+  overflow: hidden;
+  padding: 6px;
+  animation: slideUp 0.16s ease;
+}
+
+.lead-export-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.lead-export-item:hover:not(:disabled) { background: var(--bg-hover); }
+.lead-export-item:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.lead-export-item-main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lead-export-item-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* The count is the point of this menu — it says exactly how many rows the
+   choice produces, so nobody has to reason about which filters apply. */
+.lead-export-item-count {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.lead-export-item-hint {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* === Tasks Completed: auto carry-forward month-end warning banner === */
+.carryforward-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.carryforward-warning-banner svg { flex-shrink: 0; margin-top: 2px; }
+.carryforward-warning-banner strong { color: var(--warning); display: block; margin-bottom: 2px; }
+.carryforward-warning-banner span { color: var(--text-secondary); }
+
+/* === SETTINGS: database storage usage card === */
+.storage-usage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.storage-usage-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Stat-tile value: proportional figures at display size, not tabular-nums —
+   tabular is for columns of aligned numbers, not a single standalone value. */
+.storage-usage-value {
+  margin-bottom: 10px;
+}
+.storage-usage-used {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.storage-usage-of {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Meter: fill carries severity, track is a lighter step of the SAME ramp
+   (success-bg under a success fill, not a neutral gray) so the whole bar
+   reads as one state rather than "colored part + generic empty part". */
+.storage-meter {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.storage-meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.storage-meter-success { background: var(--success-bg); }
+.storage-meter-success .storage-meter-fill { background: var(--success); }
+.storage-meter-warning { background: var(--warning-bg); }
+.storage-meter-warning .storage-meter-fill { background: var(--warning); }
+.storage-meter-danger { background: var(--danger-bg); }
+.storage-meter-danger .storage-meter-fill { background: var(--danger); }
+
+.storage-usage-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Status text is a label, not a chart data-value, so — same as the app's
+   existing badges — it's allowed to carry the severity color directly. */
+.storage-usage-status { font-size: 0.78rem; font-weight: 600; }
+.storage-usage-status-success { color: var(--success); }
+.storage-usage-status-warning { color: var(--warning); }
+.storage-usage-status-danger { color: var(--danger); }
+
+.storage-usage-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+}
+.storage-usage-toggle:hover { text-decoration: underline; }
+
+.storage-usage-table {
+  width: 100%;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  border-collapse: collapse;
+}
+.storage-usage-table td {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.storage-usage-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums; /* a column of numbers — tabular is correct here */
+  color: var(--text-muted);
+}
+
+.storage-usage-caption {
+  margin: 10px 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+  .storage-meter-fill { transition: none; }
+}
+
+.lead-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.data-table tbody tr.is-selected {
+  background: var(--primary-bg);
+}
+
+/* === MODALS === */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,0.5);
+  /* Was missing the -webkit- fallback entirely (harmless on its own since
+     there was nothing for the minifier to treat as a duplicate, but
+     inconsistent with the other two glass surfaces) — added for older
+     WebKit and for consistency with the fix above. */
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: var(--spacing-md);
+  animation: fadeIn 0.2s ease;
+}
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 520px;
+  box-shadow: var(--shadow-xl);
+  animation: slideUp 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+@keyframes modalPopIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.modal-lg { max-width: 750px; }
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.modal-body { padding: 24px; }
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-input);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+/* === TABS === */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: var(--spacing-lg);
+}
+
+.tab-item {
+  padding: 12px 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-item:hover { color: var(--text-primary); }
+
+.tab-item.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* === EMPTY STATE === */
+.empty-state {
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.empty-state svg { margin-bottom: 16px; opacity: 0.4; }
+.empty-state h4 { margin-bottom: 8px; color: var(--text-secondary); }
+
+/* === CHART CONTAINERS === */
+.chart-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.chart-card h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-md);
+  color: var(--text-primary);
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* === UPLOAD AREA === */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: var(--bg-input);
+}
+
+.upload-zone:hover {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+}
+
+.upload-zone.dragover {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  transform: scale(1.01);
+}
+
+/* === COLOUR SWATCH INPUT ===
+   A native colour input trimmed down to look like a clickable swatch. */
+.color-swatch-input {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.color-swatch-input::-webkit-color-swatch-wrapper { padding: 2px; }
+.color-swatch-input::-webkit-color-swatch { border: none; border-radius: 4px; }
+.color-swatch-input::-moz-color-swatch { border: none; border-radius: 4px; }
+
+/* === PIE CHART + LEGEND ===
+   Category names live in a legend rather than as slice labels, which overlap
+   once there are more than a handful of categories. */
+/* Grid (not flex) so each track resolves to a definite width — Recharts'
+   ResponsiveContainer measures -1 inside a percentage-basis flex item. */
+.pie-with-legend {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+.pie-chart-area {
+  min-width: 0;
+  height: 260px;
+}
+
+.pie-legend {
+  min-width: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: var(--radius-sm, 6px);
+  user-select: none;
+}
+
+.pie-legend-item:hover {
+  background: var(--bg-hover);
+}
+
+.pie-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.pie-legend-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pie-legend-value {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 620px) {
+  .pie-with-legend {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .pie-chart-area { height: 220px; }
+  .pie-legend {
+    max-height: 150px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+/* === ANIMATIONS === */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-in {
+  animation: slideIn 0.3s ease forwards;
+}
+
+/* === MY DAY (personal checklist) === */
+.myday-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.myday-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.myday-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+
+.myday-item-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.myday-checkbox {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.myday-text {
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.myday-item.done .myday-text {
+  text-decoration: line-through;
+  color: var(--text-light);
+}
+
+.myday-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.myday-import-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.myday-import-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.myday-import-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.myday-import-title {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.myday-import-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.myday-import-added {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  color: var(--success);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.myday-source-badge {
+  margin-left: 8px;
+  font-size: 0.65rem;
+  padding: 1px 7px;
+  vertical-align: middle;
+}
+
+/* === STOPWATCH (My Day) ===
+   Purely local — persisted inside the todo it belongs to, in the same
+   browser-only storage the rest of My Day already uses. See Stopwatch.jsx. */
+.stopwatch {
+  padding-left: 30px; /* roughly lines up under myday-text, past the checkbox */
+}
+
+.stopwatch-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stopwatch-time {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 44px;
+}
+
+.stopwatch-btn {
+  padding: 6px;
+}
+
+.stopwatch-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.stopwatch-laps {
+  margin: 4px 0 0;
+  padding: 6px 0 0;
+  list-style: none;
+  max-height: 120px;
+  overflow-y: auto;
+  border-top: 1px dashed var(--border);
+}
+
+.stopwatch-laps li {
+  display: flex;
+  gap: 12px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 2px 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.stopwatch-laps li span:first-child {
+  min-width: 46px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.stopwatch-lap-total {
+  margin-left: auto;
+  color: var(--text-light);
+}
+
+/* === AMBIENT BACKGROUND NETWORK ===
+   Canvas-driven constellation (see components/BackgroundNetwork.jsx) confined to
+   the content area. The sidebar and topbar are untouched.
+
+   STACKING: `position: fixed; z-index: -1` places this in the root stacking
+   context, painting above the canvas background propagated from
+   `body { background: var(--bg-main) }` but below every in-flow box in
+   .content-area. This works ONLY because `html` has no background of its own.
+   Do NOT add a background to `html` or `#root`, and do NOT add
+   transform/filter/will-change/contain/isolation to .app-layout, .main-content
+   or .content-area — any of those captures this fixed layer and breaks it.
+
+   SIZING: the wrapper div stretches to the insets, and the canvas fills it at
+   100%/100%. The canvas cannot be the fixed element itself — it is a replaced
+   element, so it ignores bottom/right and collapses to its intrinsic 300x150.
+   The component reads the canvas's clientWidth/Height and sizes the backing
+   store to match at up to 2x DPR. */
+.bg-network {
+  position: fixed;
+  top: var(--topbar-height);
+  left: var(--sidebar-width);
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  /* Same reasoning as .main-content's transition above — this also insets by
+     --sidebar-width and needs to animate in step with it. */
+  transition: left 0.3s ease;
+}
+
+.bg-network canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Edge-to-edge variant for screens with no sidebar/topbar to inset from — see
+   the `full` prop in BackgroundNetwork.jsx. */
+.bg-network-full {
+  top: 0;
+  left: 0;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 1024px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+
+  /* Single-column below this width leaves almost no visible background, while
+     the GPU is typically weakest and a canvas loop costs the most. Hiding is
+     cheapest; to keep it on tablets instead use `left: 0` here. */
+  .bg-network {
+    display: none;
+  }
+
+  .mobile-menu-btn {
+    display: flex !important;
+  }
+
+  /* Schedule, Tasks Completed and Monthly Report add a Website + Month/Year
+     filter row here (.topbar-right) that comfortably fits the desktop
+     topbar's width but not a phone's — same "doesn't fit, so wrap it"
+     pattern already used everywhere else in this app (.page-header,
+     .kpi-grid, every page's own filter row), just applied to the one control
+     row that lives in the shared topbar instead of the page content. height
+     (not just min-height) had to go too: a wrapped second row needs the
+     topbar to actually grow, and the fixed height was clipping it. */
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--topbar-height);
+    padding: 10px var(--spacing-md);
+  }
+
+  .topbar-right {
+    flex-wrap: wrap;
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .content-area {
+    padding: var(--spacing-md);
+  }
+
+  .mobile-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 45;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === NOTIFICATION PANEL === */
+.notification-wrapper { position: relative; }
+/* Glass surface, hover and press live in the grouped topbar-chip rule further
+   down this file; only the bits unique to the bell are here. */
+.notification-bell { display: flex; }
+.notification-badge {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 18px; height: 18px; border-radius: 9px;
+  background: var(--danger); color: #fff;
+  font-size: 0.65rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 4px; line-height: 1;
+}
+.notification-panel {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: 360px; max-height: 440px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-xl);
+  z-index: 100; overflow: hidden;
+  animation: slideUp 0.2s ease;
+}
+.notification-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+}
+.notification-panel-header h4 { font-size: 0.95rem; font-weight: 700; }
+/* Same glass, scaled down. Tinted violet rather than neutral because these two
+   actions sit inside the notification panel's own header. */
+.notif-action-btn {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px; border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 0.72rem; font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  border: 1px solid transparent;
+  background-image: linear-gradient(150deg, var(--primary-bg) 0%, var(--primary-bg) 50%, var(--primary-bg) 100%),
+                    var(--glass-edge);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: var(--glass-rim), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.24s ease, color 0.2s ease, transform 0.18s ease;
+}
+.notif-action-btn::after {
+  content: '';
+  position: absolute; inset: 0; z-index: -1;
+  border-radius: inherit;
+  background-image: var(--glass-primary);
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+.notif-action-btn:hover {
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: var(--glass-rim-on-colour), 0 4px 12px -4px rgba(124, 58, 237, 0.45);
+}
+.notif-action-btn:hover::after { opacity: 1; }
+.notif-action-btn:active {
+  transform: translateY(0);
+  box-shadow: var(--glass-press);
+  transition-duration: 0.06s;
+}
+.notification-list { max-height: 360px; overflow-y: auto; }
+.notification-empty {
+  padding: 40px; text-align: center; color: var(--text-muted);
+  display: flex; flex-direction: column; align-items: center;
+}
+.notification-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 18px; cursor: pointer;
+  transition: background 0.15s; border-bottom: 1px solid var(--border-light);
+}
+.notification-item:hover { background: var(--bg-hover); }
+.notification-item.unread { background: var(--primary-bg); }
+.notification-item.unread:hover { background: var(--bg-hover); }
+.notif-icon { flex-shrink: 0; margin-top: 2px; }
+.notif-body { flex: 1; min-width: 0; }
+.notif-title { font-weight: 600; font-size: 0.85rem; color: var(--text-primary); }
+.notif-message { font-size: 0.8rem; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notif-time { font-size: 0.7rem; color: var(--text-light); margin-top: 3px; }
+
+/* === TOAST === */
+.toast-container {
+  position: fixed; bottom: 24px; right: 24px;
+  z-index: 200; display: flex; flex-direction: column-reverse; gap: 10px;
+  pointer-events: none;
+}
+.toast-item {
+  pointer-events: auto;
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 18px; min-width: 320px; max-width: 420px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  animation: toastIn 0.3s ease; position: relative; overflow: hidden;
+}
+.toast-icon { flex-shrink: 0; margin-top: 1px; }
+.toast-content { flex: 1; }
+.toast-title { font-weight: 700; font-size: 0.85rem; color: var(--text-primary); }
+.toast-message { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+/* Deliberately NOT glass. A raised chip inside a toast that is itself a floating
+   surface reads as two competing panels, and this is a dismiss affordance that
+   should stay quiet. It keeps the focus ring for keyboard users. */
+.toast-close {
+  flex-shrink: 0; padding: 4px; border: none; background: none;
+  color: var(--text-light); cursor: pointer; border-radius: 4px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.toast-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+.toast-progress {
+  position: absolute; bottom: 0; left: 0; height: 3px;
+  animation: toastProgress 4s linear forwards;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes toastProgress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+/* === COMMENTS === */
+.comment-item {
+  display: flex; gap: 10px; padding: 10px 14px;
+  background: var(--bg-input); border-radius: var(--radius-md);
+}
+.comment-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  background: var(--primary);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700;
+}
+
+/* === ACTIVITY LOG === */
+.activity-item {
+  display: flex; gap: 10px; padding: 8px 12px;
+  border-left: 2px solid var(--border); margin-left: 6px;
+}
+
+/* === DARK MODE TOGGLE === */
+/* Topbar glass chips. These sit closest to the reference component's own
+   proportions: a rounded square holding a single icon. Grouped so the recipe
+   lives in one place. */
+.theme-toggle,
+.notification-bell,
+.mobile-menu-btn {
+  position: relative;
+  isolation: isolate;
+  /* NOTE: no `display` here on purpose. .mobile-menu-btn is display:none until the
+     768px breakpoint flips it to flex, and setting display in this later rule
+     would override that and show the hamburger on desktop. */
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1px solid transparent;
+  background-image: var(--glass-neutral), var(--glass-edge);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+  color: var(--text-muted);
+  box-shadow: var(--glass-rim), var(--glass-lift);
+  transition: box-shadow 0.24s ease, transform 0.18s ease, color 0.2s ease;
+}
+
+.theme-toggle::after,
+.notification-bell::after,
+.mobile-menu-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: var(--glass-neutral-hi);
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+
+.theme-toggle:hover,
+.notification-bell:hover,
+.mobile-menu-btn:hover {
+  color: var(--text-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--glass-rim), var(--glass-lift-hover);
+}
+
+.theme-toggle:hover::after,
+.notification-bell:hover::after,
+.mobile-menu-btn:hover::after { opacity: 1; }
+
+.theme-toggle:active,
+.notification-bell:active,
+.mobile-menu-btn:active {
+  transform: translateY(0);
+  box-shadow: var(--glass-press);
+  transition-duration: 0.06s;
+}
+
+.theme-toggle:active::after,
+.notification-bell:active::after,
+.mobile-menu-btn:active::after { opacity: 0; }
+
+/* Set per-control rather than in the group above, so .mobile-menu-btn keeps its
+   display:none until the breakpoint. */
+.theme-toggle { display: flex; }
+
+/* === THEME SWITCH (topbar) ===
+   Adapted from a Uiverse.io checkbox toggle. The knob's own animation values
+   are kept verbatim from the original — they're all `em`, relative to
+   .theme-switch-slot's own font-size, so they stay proportionally correct at
+   any scale; only that one font-size was changed, from the original's 10px
+   down to fit next to the topbar's other ~35px icon buttons. The icon
+   placement is NOT kept verbatim: the original positioned two large (6em)
+   Iconify icon boxes at hand-tuned offsets specific to that icon set, which
+   doesn't carry over to lucide-react icons — these use simple flexbox
+   centering in the half of the pill the knob isn't currently covering. */
+.theme-switch {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.theme-switch-checkbox {
+  position: absolute;
+  opacity: 0;
+  height: 0;
+  width: 0;
+}
+
+.theme-switch-slot {
+  font-size: 8px;
+  position: relative;
+  height: 3.5em;
+  width: 7em;
+  border-radius: 10em;
+  background-color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  transition: background-color 250ms;
+}
+
+.theme-switch-checkbox:checked ~ .theme-switch-slot {
+  background-color: #374151;
+}
+
+.theme-switch-button {
+  transform: translate(0.3em, 0.25em);
+  position: absolute;
+  height: 3em;
+  width: 3em;
+  border-radius: 50%;
+  background-color: #ffeccf;
+  box-shadow: inset 0 0 0 0.75em #ffbb52;
+  transition: background-color 250ms, box-shadow 250ms, transform 500ms cubic-bezier(0.26, 2, 0.46, 0.71);
+}
+
+.theme-switch-checkbox:checked ~ .theme-switch-slot .theme-switch-button {
+  background-color: #485367;
+  box-shadow: inset 0 0 0 0.75em #fff;
+  transform: translate(3.65em, 0.25em);
+}
+
+.theme-switch-icon-wrapper {
+  position: absolute;
+  top: 0;
+  height: 3.5em;
+  width: 3.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 150ms ease, transform 500ms cubic-bezier(0.26, 2, 0.46, 0.71);
+}
+
+.theme-switch-sun-wrapper {
+  right: 0;
+  opacity: 1;
+  transform: rotate(15deg);
+}
+.theme-switch-checkbox:checked ~ .theme-switch-slot .theme-switch-sun-wrapper {
+  opacity: 0;
+  transform: translateX(0.6em) rotate(0deg);
+}
+
+.theme-switch-moon-wrapper {
+  left: 0;
+  opacity: 0;
+  transform: rotate(0deg);
+}
+.theme-switch-checkbox:checked ~ .theme-switch-slot .theme-switch-moon-wrapper {
+  opacity: 1;
+  transform: rotate(-15deg);
+}
+
+.theme-switch-sun-icon { color: #ffbb52; }
+.theme-switch-moon-icon { color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch-slot,
+  .theme-switch-button,
+  .theme-switch-icon-wrapper {
+    transition: none;
+  }
+}
+
+/* === AUTH SCREENS (login, password reset, account-not-linked) ===
+   These render outside Layout entirely — there is no sidebar or topbar to sit
+   inside, so .bg-network-full (see BackgroundNetwork.jsx) is used instead of the
+   normal inset version. */
+.auth-shell {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  /* No background here — body already paints var(--bg-main), and a background on
+     this element would sit above .bg-network's z-index:-1 layer and hide it,
+     the same trap documented on .bg-network itself. */
+}
+
+.auth-theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+/* Deliberately its own class rather than .card: .card:hover lifts and glows,
+   which is wrong for a static panel, and it has no backdrop-filter for the same
+   measured reason .card doesn't (blurring a panel that sits in front of the
+   animated background would force a re-blur every frame). */
+.auth-card {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  padding: 40px 36px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.auth-logo {
+  height: 40px;
+  object-fit: contain;
+  margin-bottom: 8px;
+}
+
+/* Loading-screen-only variant: gently breathes so a static logo doesn't read
+   as a frozen/stuck page during a restore that can take a couple of seconds. */
+.loader-logo {
+  animation: loader-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes loader-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-logo { animation: none; }
+}
+
+.auth-title {
+  font-size: 1.3rem;
+  margin-bottom: 2px;
+}
+
+.auth-subtitle {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 28px;
+}
+
+.auth-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 16px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-icon-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: left;
+}
+
+.auth-submit {
+  width: 100%;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.auth-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  padding: 4px;
+}
+.auth-link:hover { color: var(--primary-dark); text-decoration: underline; }
+
+.auth-help {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0 0 4px;
+}
+
+.auth-error,
+.auth-notice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  text-align: left;
+}
+.auth-error { background: var(--danger-bg); color: var(--danger); }
+.auth-notice { background: var(--warning-bg); color: var(--warning); margin-bottom: 20px; }
+
+.auth-footnote {
+  margin-top: 24px;
+  color: var(--text-light);
+  font-size: 0.76rem;
+}
+
+/* World map — Dashboard's "Enquiries by Country" card and Lead Center's own copy */
+.world-map-outer {
+  position: relative;
+  overflow: hidden; /* clips the zoomed-in map to the card instead of spilling into surrounding content */
+  border-radius: var(--radius-md);
+}
+/* Dashboard's card is an "at a glance" overview, not the working view Lead
+   Center's own (untouched, full-size) map is — full width like everywhere
+   else on the page, but height-capped into a letterboxed band instead of
+   the tall map Lead Center shows. flex + center clips the overflow evenly
+   off the top and bottom (mostly Arctic/Antarctic, where nothing is ever
+   pinned anyway) rather than off just the bottom, which plain block
+   overflow would do. */
+.world-map-outer--compact {
+  height: 380px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.world-map-outer--compact .world-map-zoomable {
+  width: 100%;
+  flex-shrink: 0;
+}
+.world-map-zoomable {
+  position: relative;
+  transform-origin: center center;
+  transition: transform 0.2s ease;
+}
+.world-map-zoom-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.world-map-zoom-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: background 0.15s ease;
+}
+.world-map-zoom-btn:hover:not(:disabled) { background: var(--primary-bg); }
+.world-map-zoom-btn:disabled { opacity: 0.4; cursor: default; }
+
+.world-map-wrapper {
+  width: 100%;
+  line-height: 0; /* the injected <svg> is display:block via its own sizing, but this avoids any inline-baseline gap under it */
+}
+.world-map-wrapper svg path {
+  fill: var(--border);
+  stroke: var(--bg-card-solid);
+  stroke-width: 0.5;
+  transition: fill 0.15s ease;
+}
+.world-map-wrapper svg path:hover {
+  fill: var(--primary-bg);
+}
+
+.world-map-pin-dot {
+  fill: var(--primary);
+  stroke: var(--bg-card-solid);
+  stroke-width: 1;
+}
+.world-map-pin--sm .world-map-pin-dot { r: 4; }
+.world-map-pin--md .world-map-pin-dot { r: 6; }
+.world-map-pin--lg .world-map-pin-dot { r: 8; }
+
+.world-map-pin-ring {
+  r: 8;
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  animation: world-map-pulse 1.4s ease-out infinite;
+}
+@keyframes world-map-pulse {
+  0% { r: 8; opacity: 0.9; }
+  100% { r: 20; opacity: 0; }
+}
+
+.world-map-tooltip {
+  /* left/top are pre-clamped to the viewport in JS (including the cursor
+     offset) — a CSS transform here would push it back out past the edge
+     the clamp was trying to avoid. */
+  position: fixed;
+  pointer-events: none;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  box-shadow: var(--shadow-card);
+  z-index: 50;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-link { transition: none; }
+  .world-map-pin-ring { animation: none; opacity: 0; }
+}

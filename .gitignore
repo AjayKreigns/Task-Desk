@@ -1,0 +1,41 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Real credentials — Netlify gets these from its own environment variable
+# settings, not from a committed file. .env.localtest (the local-only-mode
+# test override used during development) is covered by *.local above.
+.env
+.env.*
+!.env.example
+
+# Has the live lead-webhook secret + anon key hardcoded — pasted directly
+# into WordPress, never part of the built app, so there's nothing lost by
+# keeping it local-only.
+wordpress-lead-webhook-live.php
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Local tooling state — machine-specific, not meant to be shared
+.claude
+.netlify
+.archify
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
