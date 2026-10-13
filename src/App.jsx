@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import AuthGate from './components/AuthGate';
 import Layout from './components/Layout';
 import { isTabAccessible } from './lib/tabAccess';
+import { isLeadCenterVisible } from './lib/leadCenterAccess';
 import Toast from './components/Toast';
 import FullScreenLoader from './components/FullScreenLoader';
 import AccessDenied from './components/AccessDenied';
@@ -48,8 +49,12 @@ function AppContent() {
   // Same idea, for Dashboard's KPI cards (Total/Completed/Pending/Carried
   // Forward) opening Tasks Completed pre-filtered to that status.
   const [completedIntent, setCompletedIntent] = useState(null);
-  const { websites, loading, unitLabelPlural, teams } = useApp();
-  const { canViewAll, myEmployeeId, isSuperAdmin, selectedTeamId, setSelectedTeamId } = useAuth();
+  const { websites, loading, unitLabelPlural, teams, currentTeam } = useApp();
+  const { canViewAll, myEmployeeId, isSuperAdmin, canManageTeam, selectedTeamId, setSelectedTeamId } = useAuth();
+  // One shared context object for every isTabAccessible() call below, so the
+  // redirect effect, the renderPage() switch, and Layout.jsx's nav filter can
+  // never drift onto checking slightly different things.
+  const tabAccessCtx = { canViewAll, isSuperAdmin, isLeadSourceTeam: isLeadCenterVisible(currentTeam, canManageTeam) };
 
   // Schedule's and Tasks Completed's own employee/category/status filter
   // selections, lifted up here rather than kept as local state in each page.
@@ -69,8 +74,10 @@ function AppContent() {
   // dashboard rather than leaving them stuck on a page every action in it would
   // reject anyway.
   useEffect(() => {
-    if (!isTabAccessible(activeTab, { canViewAll, isSuperAdmin })) setActiveTab('dashboard');
-  }, [canViewAll, isSuperAdmin, activeTab]);
+    if (!isTabAccessible(activeTab, { canViewAll, isSuperAdmin, isLeadSourceTeam: isLeadCenterVisible(currentTeam, canManageTeam) })) {
+      setActiveTab('dashboard');
+    }
+  }, [canViewAll, isSuperAdmin, canManageTeam, currentTeam, activeTab]);
 
   useEffect(() => {
     try { sessionStorage.setItem('td_active_tab', activeTab); } catch { /* storage unavailable */ }
@@ -169,11 +176,11 @@ function AppContent() {
       case 'myday':
         return <MyDay />;
       case 'leads':
-        return <LeadCenter />;
+        return isTabAccessible('leads', tabAccessCtx) ? <LeadCenter /> : <AccessDenied />;
       case 'settings':
-        return isTabAccessible('settings', { canViewAll, isSuperAdmin }) ? <Settings /> : <AccessDenied />;
+        return isTabAccessible('settings', tabAccessCtx) ? <Settings /> : <AccessDenied />;
       case 'teams':
-        return isTabAccessible('teams', { canViewAll, isSuperAdmin }) ? <TeamManagement onOpenTeam={() => setActiveTab('settings')} /> : <AccessDenied />;
+        return isTabAccessible('teams', tabAccessCtx) ? <TeamManagement onOpenTeam={() => setActiveTab('settings')} /> : <AccessDenied />;
       default:
         return <Dashboard />;
     }

@@ -12,7 +12,7 @@ export default function FullScreenLoader({ label = 'Loading dashboard...' }) {
       <BackgroundNetwork full />
       <div style={{ textAlign: 'center' }}>
         <img src="/logo.png" alt="" className="auth-logo loader-logo" />
-        <h1 className="auth-title">Task Dashboard</h1>
+        <h1 className="auth-title">iFe Desk</h1>
         <p className="auth-subtitle" style={{ marginBottom: 0 }}>{label}</p>
       </div>
     </div>

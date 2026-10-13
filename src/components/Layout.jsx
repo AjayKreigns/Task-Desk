@@ -3,11 +3,13 @@ import { LayoutDashboard, CalendarDays, CheckCircle2, Settings, FileText, ListCh
 import NotificationPanel from './NotificationPanel';
 import BackgroundNetwork from './BackgroundNetwork';
 import TaskCarryForwardNotifier from './TaskCarryForwardNotifier';
+import TeamMoveNotifier from './TeamMoveNotifier';
 import ConfirmDialog from './ConfirmDialog';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { isTabAccessible } from '../lib/tabAccess';
+import { isLeadCenterVisible } from '../lib/leadCenterAccess';
 
 const SIDEBAR_COLLAPSED_KEY = 'td_sidebar_collapsed';
 
@@ -29,27 +31,26 @@ export default function Layout({ activeTab, setActiveTab, children }) {
   // Theme lives in ThemeContext, which sits above the auth gate so the login and
   // loading screens are themed too. The toggle button below is unchanged.
   const { theme, toggleTheme } = useTheme();
-  const { displayName, role, canViewAll, isSuperAdmin, localOnly, signOut, myEmployeeId } = useAuth();
+  const { displayName, role, canViewAll, isSuperAdmin, canManageTeam, localOnly, signOut, myEmployeeId } = useAuth();
   const { tasks, currentTeam } = useApp();
 
-  // Lead Center's visibility below depends on which team is currently in
-  // view, so this can't be a module-level constant any more — it needs to be
-  // recomputed whenever currentTeam changes (a super admin switching teams).
-  const navItems = useMemo(() => [
+  // Always lists every tab unconditionally — isTabAccessible (shared with
+  // App.jsx) is the one place that decides which of these actually show,
+  // including Lead Center: it stays a single, shared, company-wide resource,
+  // never duplicated per team, so it's only accessible while Digital
+  // Marketing (is_lead_source_team, not its editable name) is the team in
+  // view, whether that's this person's own fixed team or, for a super admin,
+  // whichever team the switcher currently has selected.
+  const navItems = [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Main' },
     { key: 'schedule', label: 'Schedule', icon: CalendarDays, section: 'Main' },
     { key: 'completed', label: 'Tasks Completed', icon: CheckCircle2, section: 'Main' },
     { key: 'report', label: 'Monthly Report', icon: FileText, section: 'Main' },
     { key: 'myday', label: 'My Day', icon: ListChecks, section: 'Main' },
-    // Lead Center stays a single, shared, company-wide resource — never
-    // duplicated per team — so it's only ever visible while Digital
-    // Marketing (is_lead_source_team, not its editable name) is the team in
-    // view, whether that's this person's own fixed team or, for a super
-    // admin, whichever team the switcher currently has selected.
-    ...(currentTeam?.is_lead_source_team ? [{ key: 'leads', label: 'Lead Center', icon: Inbox, section: 'Main' }] : []),
+    { key: 'leads', label: 'Lead Center', icon: Inbox, section: 'Main' },
     { key: 'settings', label: 'Settings', icon: Settings, section: 'Manage' },
     { key: 'teams', label: 'Teams', icon: Building2, section: 'Manage' },
-  ], [currentTeam]);
+  ];
 
   useEffect(() => {
     try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0'); } catch { /* storage unavailable */ }
@@ -79,7 +80,7 @@ export default function Layout({ activeTab, setActiveTab, children }) {
   // Filtered BEFORE grouping by section — filtering after grouping would leave
   // an empty "Manage" section label with nothing underneath it once Settings
   // is the only item removed from that section.
-  const visibleNavItems = navItems.filter(item => isTabAccessible(item.key, { canViewAll, isSuperAdmin }));
+  const visibleNavItems = navItems.filter(item => isTabAccessible(item.key, { canViewAll, isSuperAdmin, isLeadSourceTeam: isLeadCenterVisible(currentTeam, canManageTeam) }));
   const grouped = {};
   visibleNavItems.forEach(item => {
     if (!grouped[item.section]) grouped[item.section] = [];
@@ -93,6 +94,7 @@ export default function Layout({ activeTab, setActiveTab, children }) {
           children positionally (children[0] = topbar controls, children[1] = page). */}
       <BackgroundNetwork />
       <TaskCarryForwardNotifier />
+      <TeamMoveNotifier />
 
       {sidebarOpen && <div className="mobile-overlay" onClick={() => setSidebarOpen(false)} />}
 
@@ -117,7 +119,7 @@ export default function Layout({ activeTab, setActiveTab, children }) {
 
         <div className="sidebar-brand">
           <img src="/logo.png" alt="Logo" style={{ height: '40px', marginBottom: '8px', objectFit: 'contain' }} />
-          <h1>Task Dashboard</h1>
+          <h1>iFe Desk</h1>
           <p>{currentTeam ? `${currentTeam.name} Operations` : 'Team Operations'}</p>
         </div>
 

@@ -14,6 +14,7 @@ import {
 import { buildCoverImage, stampCover } from '../lib/reportCover';
 import { STATUS_LABEL, leadStatusKey, parseDate, formatDate } from '../lib/leadFields';
 import { getCountryFromPhone } from '../lib/phoneCountry';
+import { isLeadCenterVisible } from '../lib/leadCenterAccess';
 
 // Hours are stored as numbers; render them compactly (2 not 2.0, 1.5 stays 1.5)
 function fmtHrs(n) {
@@ -77,7 +78,7 @@ function getStatusColor(task, tasksById) {
 
 export default function MonthlyReport({ selectedMonth, selectedYear, selectedWebsite }) {
   const { tasks, tasksById, employees, websites, leads, getEmployeeName, getWebsiteName, getCategoryColor, unitLabel, unitLabelPlural, currentTeam } = useApp();
-  const { canViewAll } = useAuth();
+  const { canViewAll, canManageTeam } = useAuth();
   const { notify } = useNotification();
   const reportRef = useRef(null);
   // 'month' uses the month+year picked in the topbar; 'year' covers all 12 months
@@ -240,10 +241,10 @@ export default function MonthlyReport({ selectedMonth, selectedYear, selectedWeb
   // (see Layout.jsx's own Lead Center nav visibility rule) — so without this
   // check every team's Monthly Report would show the exact same enquiries,
   // regardless of which team is actually being reported on. Gated the same
-  // way Lead Center's nav item is: is_lead_source_team, not the team's
-  // editable name.
+  // way Lead Center itself is (isLeadCenterVisible) — Digital Marketing
+  // always, BDE only for its own admin/super_admin.
   const enquiriesList = useMemo(() => {
-    if (!currentTeam?.is_lead_source_team) return [];
+    if (!isLeadCenterVisible(currentTeam, canManageTeam)) return [];
     return leads
       .filter(l => {
         const d = parseDate(l.createdAt);
@@ -251,7 +252,7 @@ export default function MonthlyReport({ selectedMonth, selectedYear, selectedWeb
         return (isYearView || d.getUTCMonth() + 1 === selectedMonth) && d.getUTCFullYear() === selectedYear;
       })
       .sort((a, b) => parseDate(a.createdAt) - parseDate(b.createdAt));
-  }, [leads, isYearView, selectedMonth, selectedYear, currentTeam]);
+  }, [leads, isYearView, selectedMonth, selectedYear, currentTeam, canManageTeam]);
 
   // Same three buckets as Lead Center's own KPI row, so "Converted" means the
   // exact same thing in both places.
@@ -290,6 +291,7 @@ export default function MonthlyReport({ selectedMonth, selectedYear, selectedWeb
     const { dataUrl: coverPng } = await buildCoverImage({
       periodLabel: filterEmployee !== 'all' ? `${monthName} - ${getEmployeeName(filterEmployee)}` : monthName,
       generatedLabel: `Generated: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+      titleLabel: `${currentTeam?.name || 'Digital Marketing'} Report`,
     });
     stampCover(doc, coverPng);
 

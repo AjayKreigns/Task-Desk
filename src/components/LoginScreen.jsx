@@ -85,7 +85,7 @@ export default function LoginScreen({ forcedMode }) {
 
       <div className="auth-card">
         <img src="/logo.png" alt="" className="auth-logo" />
-        <h1 className="auth-title">Task Dashboard</h1>
+        <h1 className="auth-title">iFe Desk</h1>
         <p className="auth-subtitle">Digital Marketing Operations</p>
 
         {authNotice && effectiveMode === 'signin' && (

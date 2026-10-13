@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1536" height="2172" viewBox="0 0 1536 2172" role="img" aria-labelledby="title desc">
-  <title id="title">IFE Digital Marketing Report Cover</title>
+  <title id="title">iFe Desk Report Cover</title>
   <desc id="desc">Editable vector cover template for web PDF export. Portrait A4 (1536 x 2172 = 1:1.414).</desc>
 
   <defs>
@@ -51,7 +51,7 @@
   </g>
 
   <!-- Main copy -->
-  <text id="brand-label" x="123" y="700" font-family="Arial, Helvetica, sans-serif" font-size="98" font-weight="700" fill="#07154A">IFE</text>
+  <text id="brand-label" x="123" y="700" font-family="Arial, Helvetica, sans-serif" font-size="98" font-weight="700" fill="#07154A">iFe Desk</text>
   <text id="report-title" x="123" y="800" font-family="Arial, Helvetica, sans-serif" font-size="83" font-weight="700" fill="url(#titleGrad)">Digital Marketing Report</text>
   <rect x="126" y="847" width="112" height="4" fill="#5616D5"/>
 

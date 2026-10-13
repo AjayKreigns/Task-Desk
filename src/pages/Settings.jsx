@@ -666,22 +666,81 @@ function DeleteCategoryModal({ category, taskCount, options, getCategoryColor, o
 }
 
 function EmployeeModal({ employee, onSave, onClose }) {
-  const { employee: me, isSuperAdmin } = useAuth();
+  const { employee: me, isSuperAdmin, selectedTeamId } = useAuth();
+  const { teams, tasks } = useApp();
   const [form, setForm] = useState({
     name: employee?.name || '',
     designation: employee?.designation || '',
     email: employee?.email || '',
     role: normalizeRole(employee?.role),
+    // Every employee shown here already belongs to whichever one team is
+    // currently drilled into (Settings.jsx's own list is pre-scoped to it) —
+    // not a field on the employee object itself, so selectedTeamId IS their
+    // current team, not just a fallback default.
+    teamId: selectedTeamId,
   });
   // The database refuses to demote the very last admin (employees_last_admin_trg
   // in supabase_rls_policies.sql) — this just avoids offering a control that
   // would only come back as a rejected write for the one account it can't apply to.
   const isSelf = !!employee && !!me && employee.id === me.id;
 
+  // A team move is consequential enough (it takes this person's whole task
+  // history with it — see the Team field's own note below) to show exactly
+  // what's about to move before committing, rather than only after. `tasks`
+  // here is already scoped to this one team (same as everywhere else in
+  // Settings.jsx), so every task assigned to this employee IS the complete
+  // set that's about to move — no separate fetch needed.
+  const [confirmingMove, setConfirmingMove] = useState(false);
+  const isMoving = !!employee && form.teamId !== selectedTeamId;
+  const movingTasks = isMoving ? tasks.filter(t => t.assignedTo === employee.id) : [];
+  const destinationTeam = teams.find(t => t.id === form.teamId);
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isMoving) { setConfirmingMove(true); return; }
     onSave(form);
   };
+
+  if (confirmingMove) {
+    return (
+      <ModalPortal>
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+          <div className="modal">
+            <div className="modal-header">
+              <h3>Move {employee.name}?</h3>
+              <button className="btn-icon" onClick={onClose}><X size={20} /></button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+                Moving {employee.name} to <strong>{destinationTeam?.name}</strong> takes
+                {movingTasks.length > 0 ? ` all ${movingTasks.length} of their task(s) below` : ' their (currently empty) task list'} with them —
+                scheduled, completed, and pending alike.
+              </p>
+              {movingTasks.length > 0 && (
+                <div style={{ maxHeight: '260px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  {movingTasks.map(t => (
+                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: '0.85rem' }}>{t.title}</span>
+                      <span className={`badge badge-${t.status === 'completed' ? 'success' : 'pending'}`} style={{ flexShrink: 0 }}>
+                        {t.status === 'completed' ? 'Completed' : 'Pending'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                Each task's website/company also moves — reusing a same-named one in {destinationTeam?.name} if it has one, or creating it there if not.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setConfirmingMove(false)}>Back</button>
+              <button type="button" className="btn btn-primary" onClick={() => onSave(form)}><Save size={16} /> Confirm Move</button>
+            </div>
+          </div>
+        </div>
+      </ModalPortal>
+    );
+  }
 
   return (
     <ModalPortal>
@@ -732,6 +791,28 @@ function EmployeeModal({ employee, onSave, onClose }) {
                 </span>
               )}
             </div>
+            {/* Moving someone to a different team — only a super admin can
+                even see other teams to pick from, and only when editing an
+                existing employee (adding one already implicitly targets
+                whichever team is currently drilled into). The database still
+                refuses to move a team's last admin/covering super_admin away
+                (guard_employee_role_changes, supabase_teams_rls.sql) — this
+                just offers the control; that rejection surfaces as a normal
+                "Could not save team member" error if it applies. */}
+            {isSuperAdmin && employee && (
+              <div className="form-group">
+                <label className="form-label">Team</label>
+                <select className="form-select" value={form.teamId || ''}
+                  onChange={e => setForm({ ...form, teamId: e.target.value })}>
+                  {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+                {form.teamId !== selectedTeamId && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '6px', display: 'block' }}>
+                    Moves all of their tasks (scheduled, completed, and pending) to the new team too — their work history goes with them.
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>

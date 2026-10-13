@@ -19,10 +19,15 @@ dist-ssr
 .env.*
 !.env.example
 
-# Has the live lead-webhook secret + anon key hardcoded — pasted directly
-# into WordPress, never part of the built app, so there's nothing lost by
-# keeping it local-only.
-wordpress-lead-webhook-live.php
+# Backend/ops scripts, kept local-only (confirmed with the user — this repo
+# is the frontend app only). None of these ship in the built app or are ever
+# imported by src/ — they're pasted into Supabase's SQL Editor or WordPress
+# by hand, or run standalone with `node`.
+supabase_*.sql
+wordpress-*.php
+docs/
+scripts/
+test-supabase.mjs
 
 # Editor directories and files
 .vscode/*

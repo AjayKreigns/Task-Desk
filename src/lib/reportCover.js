@@ -49,7 +49,7 @@ export async function toDataUrl(src) {
   return canvas.toDataURL('image/png');
 }
 
-export function buildCoverSvg(template, { periodLabel, generatedLabel, logoDataUrl }) {
+export function buildCoverSvg(template, { periodLabel, generatedLabel, titleLabel, logoDataUrl }) {
   const doc = new DOMParser().parseFromString(template, 'image/svg+xml');
   if (doc.querySelector('parsererror')) throw new Error('cover template is not valid SVG');
 
@@ -57,6 +57,11 @@ export function buildCoverSvg(template, { periodLabel, generatedLabel, logoDataU
     const node = doc.getElementById(id);
     if (node && value != null) node.textContent = value;
   };
+  // The template's own text is "Digital Marketing Report" — left as-is
+  // (titleLabel omitted) for any caller that doesn't know a team name, but
+  // MonthlyReport.jsx always passes one so every team's export reads as its
+  // own team's report, not permanently Digital Marketing's.
+  setText('report-title', titleLabel);
   setText('report-month', periodLabel);
   setText('generated-date', generatedLabel);
 
@@ -92,7 +97,7 @@ export async function rasterizeSvg(svgString, scale = 1.5) {
   return canvas.toDataURL('image/png');
 }
 
-export async function buildCoverImage({ periodLabel, generatedLabel, logoSrc = '/logo.png', scale = 1.5 }) {
+export async function buildCoverImage({ periodLabel, generatedLabel, titleLabel, logoSrc = '/logo.png', scale = 1.5 }) {
   let logoDataUrl = null;
   try {
     logoDataUrl = await toDataUrl(logoSrc);
@@ -100,7 +105,7 @@ export async function buildCoverImage({ periodLabel, generatedLabel, logoSrc = '
     // Fall back to the template's own logo artwork rather than failing the export
   }
   const template = await loadCoverTemplate();
-  const svg = buildCoverSvg(template, { periodLabel, generatedLabel, logoDataUrl });
+  const svg = buildCoverSvg(template, { periodLabel, generatedLabel, titleLabel, logoDataUrl });
   return { dataUrl: await rasterizeSvg(svg, scale), usedRealLogo: Boolean(logoDataUrl) };
 }
 

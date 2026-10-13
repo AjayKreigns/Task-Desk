@@ -571,9 +571,19 @@ export function AppProvider({ children }) {
 
   const updateEmployee = useCallback(async (id, data) => {
     if (isCloud) {
+      // team_id is deliberately NOT part of this plain update — moving
+      // someone to a different team also has to move every one of their
+      // tasks (scheduled, completed, pending, all of it — confirmed with the
+      // user), which a bare employees-table UPDATE can't do: tasks.team_id
+      // is pinned by tasks_assign_team_id_trg on any update that doesn't
+      // also change assigned_to. move_employee_to_team() (
+      // supabase_teams_move_employee_rpc.sql) is the one place that does
+      // both atomically, so a team move always goes through it below,
+      // never through this payload.
+      const payload = { name: data.name, designation: data.designation, email: data.email || '', role: normalizeRole(data.role) };
       const { data: rows, error } = await dbRun(
         'Could not save team member',
-        () => supabase.from('employees').update({ name: data.name, designation: data.designation, email: data.email || '', role: normalizeRole(data.role) }).eq('id', id).select('id'),
+        () => supabase.from('employees').update(payload).eq('id', id).select('id'),
         TEAM_PERMISSION_MSG,
       );
       // Return before touching state on failure. The previous version logged the
@@ -585,10 +595,38 @@ export function AppProvider({ children }) {
         return;
       }
       setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...data } : e));
+
+      // teamId is only ever present when a super admin picked a different
+      // destination team in the Employee modal (Settings.jsx) — omitted
+      // entirely otherwise. Unchanged (picked the team they're already in)
+      // is a no-op here, same as it always was.
+      if (data.teamId && data.teamId !== selectedTeamId) {
+        const { error: moveError } = await dbRun(
+          'Could not move employee',
+          () => supabase.rpc('move_employee_to_team', { p_employee_id: id, p_new_team_id: data.teamId }),
+        );
+        if (moveError) return; // name/role changes above already saved regardless
+        // Counted before dropping them below — the confirmation step in
+        // Settings.jsx's Employee modal already showed this same list before
+        // the move was confirmed; this is the after-the-fact receipt.
+        const movedCount = tasks.filter(t => t.assignedTo === id).length;
+        const destinationName = teams.find(t => t.id === data.teamId)?.name || 'the new team';
+        notificationCtx?.notify?.('success', 'Employee moved',
+          movedCount > 0
+            ? `${data.name} moved to ${destinationName} with ${movedCount} task${movedCount !== 1 ? 's' : ''}.`
+            : `${data.name} moved to ${destinationName}.`);
+        // Moved to a different team than the one currently in view: both the
+        // employee and every one of their tasks no longer belong in this
+        // scoped view at all, so they're dropped rather than merged —
+        // merging the team change in would otherwise leave them visibly
+        // stuck in the wrong team's lists until the next full refetch.
+        setEmployees(prev => prev.filter(e => e.id !== id));
+        setTasks(prev => prev.filter(t => t.assignedTo !== id));
+      }
       return;
     }
     setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...data } : e));
-  }, [isCloud, dbRun, reportBlocked]);
+  }, [isCloud, dbRun, reportBlocked, selectedTeamId, tasks, teams, notificationCtx]);
 
   const deleteEmployee = useCallback(async (id) => {
     if (isCloud) {

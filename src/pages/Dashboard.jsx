@@ -13,6 +13,7 @@ import WelcomeBanner from '../components/WelcomeBanner';
 import WorldMap from '../components/WorldMap';
 import { lighten } from '../lib/categories';
 import { isCarriedForward } from '../lib/taskProgress';
+import { isLeadCenterVisible } from '../lib/leadCenterAccess';
 
 // Pops the hovered slice out of the ring
 function renderActiveSlice(props) {
@@ -20,8 +21,8 @@ function renderActiveSlice(props) {
 }
 
 export default function Dashboard({ onCategoryDrill, onStatusDrill, onNavigateToLeads }) {
-  const { tasks, employees, websites, leads, getEmployeeName, getWebsiteName, getCategoryColor, unitLabel, unitLabelPlural } = useApp();
-  const { canViewAll } = useAuth();
+  const { tasks, employees, websites, leads, getEmployeeName, getWebsiteName, getCategoryColor, unitLabel, unitLabelPlural, currentTeam } = useApp();
+  const { canViewAll, canManageTeam } = useAuth();
   const [viewMode, setViewMode] = useState('overall'); // overall | monthly
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
@@ -551,25 +552,32 @@ export default function Dashboard({ onCategoryDrill, onStatusDrill, onNavigateTo
         </div>
       </div>
 
-      {/* Enquiries by Country */}
-      <div className="card" style={{ marginTop: '8px' }}>
-        <div className="card-body">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-            <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              <Globe size={18} style={{ color: 'var(--primary)' }} /> Enquiries by Country
-            </h4>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={onNavigateToLeads}
-              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-            >
-              View Details <ArrowUpRight size={14} />
-            </button>
+      {/* Enquiries by Country — Lead Center stays a single, shared,
+          company-wide resource, never duplicated per team, so this card
+          (and the button that jumps straight to Lead Center) only appears
+          while it's actually reachable for this team/role. Same
+          isLeadCenterVisible check Layout.jsx's own nav item and App.jsx's
+          isTabAccessible both use. */}
+      {isLeadCenterVisible(currentTeam, canManageTeam) && (
+        <div className="card" style={{ marginTop: '8px' }}>
+          <div className="card-body">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+              <h4 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                <Globe size={18} style={{ color: 'var(--primary)' }} /> Enquiries by Country
+              </h4>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={onNavigateToLeads}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                View Details <ArrowUpRight size={14} />
+              </button>
+            </div>
+            <WorldMap leads={leads} compact />
           </div>
-          <WorldMap leads={leads} compact />
         </div>
-      </div>
+      )}
 
       {/* Recent Activity */}
       {recentActivity.length > 0 && (
