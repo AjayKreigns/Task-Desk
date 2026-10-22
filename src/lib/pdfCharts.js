@@ -53,6 +53,48 @@ export function drawKpiCards(doc, { x, y, width, cards, height = 24 }) {
   return y + height;
 }
 
+// Full-width counterpart to drawKpiCards, with a progress bar underneath the
+// rate — mirrors the web's own full-width Completion Rate card (kpi-completion-row
+// in index.css) so the PDF and the live page show the same card structure.
+export function drawCompletionCard(doc, { x, y, width, label, rate, detail, color = PURPLE, height = 30 }) {
+  fill(doc, '#ffffff');
+  stroke(doc, LIGHT_GREY);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(x, y, width, height, 2, 2, 'FD');
+  fill(doc, color);
+  doc.roundedRect(x, y, width, 2.2, 1, 1, 'F');
+  doc.rect(x, y + 1.4, width, 0.9, 'F');
+
+  textColor(doc, GREY);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text(String(label).toUpperCase(), x + 5, y + 10);
+
+  textColor(doc, NAVY);
+  doc.setFontSize(17);
+  doc.text(`${rate}%`, x + 5, y + 19.5);
+
+  if (detail) {
+    textColor(doc, GREY);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(detail, x + width - 5, y + 10, { align: 'right' });
+  }
+
+  const barX = x + 5;
+  const barY = y + 23;
+  const barW = width - 10;
+  const barH = 3.2;
+  fill(doc, LIGHT_GREY);
+  doc.roundedRect(barX, barY, barW, barH, barH / 2, barH / 2, 'F');
+  const clampedRate = Math.min(100, Math.max(0, Number(rate) || 0));
+  const filledW = Math.max(barH, (barW * clampedRate) / 100);
+  fill(doc, color);
+  doc.roundedRect(barX, barY, filledW, barH, barH / 2, barH / 2, 'F');
+
+  return y + height;
+}
+
 // --------------------------------------------------------------------- donut
 
 export function drawDonutChart(doc, { x, y, size, slices, legendWidth = 0 }) {

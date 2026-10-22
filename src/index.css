@@ -52,6 +52,12 @@
      same value dark mode uses for --info itself (#38bdf8), so it reads as a
      lighter step of the same light-theme blue rather than an unrelated hue. */
   --info-light: #38bdf8;
+  /* A 7th accent, distinct from all six above — needed once Completion Rate
+     stopped sharing "purple" (--secondary) with the new Total Tasks card.
+     "Ultra Violet" gradient, picked by the user. */
+  --violet: #654ea3;
+  --violet-light: #eaafc8;
+  --violet-bg: #f3e8ff;
 
   /* Text */
   --text-primary: #18181b;
@@ -228,6 +234,8 @@
   --danger-bg: rgba(225,29,72,0.15);
   --info: #38bdf8;
   --info-bg: rgba(14,165,233,0.15);
+  --violet: #eaafc8;
+  --violet-bg: rgba(101,78,163,0.2);
   --text-primary: #fafafa;
   --text-secondary: #d4d4d8;
   --text-muted: #a1a1aa;
@@ -397,6 +405,18 @@ input, select, textarea {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  transition: padding 0.3s ease;
+}
+
+.sidebar-logo {
+  height: 76px;
+  margin-bottom: 8px;
+  object-fit: contain;
+  /* Matches .sidebar's own 0.3s ease timing — without this, the logo's
+     76px->32px collapse-mode resize (below) snapped instantly while
+     everything else around it eased smoothly, standing out as a jarring
+     "hard" cut mid-transition. */
+  transition: height 0.3s ease, margin-bottom 0.3s ease;
 }
 
 .sidebar-brand h1 {
@@ -408,6 +428,9 @@ input, select, textarea {
   align-items: center;
   justify-content: center;
   gap: 10px;
+  overflow: hidden;
+  max-height: 40px;
+  transition: opacity 0.2s ease, max-height 0.3s ease;
 }
 
 .sidebar-brand h1 .brand-icon {
@@ -425,6 +448,9 @@ input, select, textarea {
   font-size: 0.75rem;
   color: var(--text-sidebar-muted);
   margin-top: 4px;
+  overflow: hidden;
+  max-height: 30px;
+  transition: opacity 0.2s ease, max-height 0.3s ease, margin-top 0.3s ease;
 }
 
 .sidebar-nav {
@@ -433,6 +459,7 @@ input, select, textarea {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  transition: padding 0.3s ease;
 }
 
 .sidebar-nav .nav-section-label {
@@ -442,6 +469,9 @@ input, select, textarea {
   color: var(--text-sidebar-muted);
   padding: 16px 12px 6px;
   font-weight: 600;
+  overflow: hidden;
+  max-height: 40px;
+  transition: opacity 0.2s ease, max-height 0.3s ease, padding 0.3s ease;
 }
 
 /* Nav rows use the same glass material as the buttons, with one difference: the
@@ -463,7 +493,14 @@ input, select, textarea {
   font-weight: 500;
   cursor: pointer;
   text-decoration: none !important;
-  transition: color 0.2s ease, transform 0.18s ease;
+  transition: color 0.2s ease, transform 0.18s ease, padding 0.3s ease;
+}
+
+.nav-item .nav-label {
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 180px;
+  transition: opacity 0.2s ease, max-width 0.3s ease;
 }
 
 .nav-item::after {
@@ -571,6 +608,9 @@ input, select, textarea {
 .sidebar-user-meta {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+  max-height: 40px;
+  transition: opacity 0.2s ease, max-height 0.3s ease;
 }
 
 .sidebar-user .user-name {
@@ -595,6 +635,11 @@ input, select, textarea {
    instead of the team and whatever period another tab has selected. */
 .sidebar-stats-wrap {
   margin: 12px 12px 0;
+  overflow: hidden;
+  /* Matches .sidebar's own 0.3s width transition — see the collapsed override
+     below for why this can no longer be a plain `display: none` snap. */
+  max-height: 100px;
+  transition: opacity 0.2s ease, max-height 0.3s ease, margin-top 0.3s ease;
 }
 
 .sidebar-stats-caption {
@@ -644,7 +689,10 @@ input, select, textarea {
 }
 
 .sidebar-collapsed .sidebar-stats-wrap {
-  display: none;
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+  pointer-events: none;
 }
 
 /* Combined with .btn-icon (two classes, not one) so this wins the cascade
@@ -730,20 +778,66 @@ input, select, textarea {
   background: transparent;
 }
 
+/* Not display:none — that snaps away instantly while .sidebar/.main-content's
+   own width transition is still animating over 0.3s, which is what made the
+   collapse/expand look uneven (labels vanishing/reflowing mid-animation
+   instead of fading and collapsing in step with it). Each of these has a
+   matching base transition declared alongside its own rule above. */
 .sidebar-collapsed .sidebar-brand h1,
 .sidebar-collapsed .sidebar-brand p,
 .sidebar-collapsed .nav-section-label,
 .sidebar-collapsed .nav-label,
 .sidebar-collapsed .sidebar-user-meta {
-  display: none;
+  opacity: 0;
+  max-height: 0;
+  max-width: 0;
+  pointer-events: none;
+}
+
+/* The collapsed rail is only 76px wide total (--sidebar-width above) — at
+   55px tall (the requested collapsed-mode size) the roughly-square logo
+   needs sidebar-brand's own side padding cut down too, or it overflows the
+   rail horizontally. */
+.sidebar-collapsed .sidebar-logo {
+  height: 55px;
+  margin-bottom: 0;
+}
+
+.sidebar-collapsed .sidebar-brand {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.sidebar-collapsed .sidebar-nav {
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 .sidebar-collapsed .nav-item {
   justify-content: center;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
+/* With the label gone, a 20px icon alone reads as too small against the 76px
+   rail's worth of surrounding space — sized up to fill it better. Needs the
+   padding cuts above too, or a 35px icon has nowhere left to sit inside the
+   rail's remaining width and gets clipped at the sidebar's own edge. */
+.sidebar-collapsed .nav-item svg {
+  width: 21px;
+  height: 21px;
+  transition: width 0.2s ease, height 0.2s ease;
+}
+
+/* The 76px rail is too narrow for avatar + sign-out button side by side
+   (38px avatar + 12px gap + the icon button already exceeds the ~64px
+   actually available after padding) — they overflowed the rail horizontally,
+   clipped by the sidebar's own edges on both sides. Stacking vertically uses
+   the footer's spare height instead, with no overflow at any width. */
 .sidebar-collapsed .sidebar-user {
+  flex-direction: column;
   justify-content: center;
+  gap: 8px;
   padding: 10px 6px;
 }
 
@@ -1038,11 +1132,16 @@ input, select, textarea {
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
+/* No transform here (deliberately) — a lift moves the card's own bottom edge
+   out from under a cursor resting near it, which ends the hover, drops the
+   card back down under the cursor, and re-triggers it: an infinite jitter
+   loop right at that edge. Full-page cards (Schedule's search bar, its task
+   table) are tall enough that a cursor parked near the bottom happens
+   constantly, so the lift is dropped in favor of just the glow/border. */
 .card:hover {
-  transform: translateY(-4px);
   box-shadow: var(--shadow-lg), 0 8px 24px rgba(124, 58, 237, 0.15);
   border-color: rgba(124, 58, 237, 0.5);
   background: var(--bg-hover);
@@ -1051,10 +1150,21 @@ input, select, textarea {
 .card-body { padding: var(--spacing-lg); }
 
 /* === KPI CARDS === */
+/* Fixed column count, not auto-fit/flex-wrap — the column count must depend
+   only on the @media breakpoints below (real viewport width), never on how
+   much of that viewport the sidebar happens to leave for .main-content.
+   Flex-wrap/auto-fit both reflow based on the *container's* available width,
+   so collapsing the sidebar (which only changes the container, not the
+   viewport) was reshuffling this row on its own — fixed grid columns don't. */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(6, 1fr);
   gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Completion Rate's own full-width row — always alone, at every width. */
+.kpi-completion-row {
   margin-bottom: var(--spacing-lg);
 }
 
@@ -1069,6 +1179,7 @@ input, select, textarea {
 .kpi-card {
   position: relative;
   isolation: isolate;
+  min-width: 0;
   display: flex;
   align-items: flex-start;
   gap: 16px;
@@ -1118,6 +1229,9 @@ input, select, textarea {
    badge color already used for carry-forward elsewhere (Schedule/
    TasksCompleted's CF badge, MonthlyReport's status label). */
 .kpi-card.info::after { background: linear-gradient(90deg, var(--info), var(--info-light)); }
+/* Gold — Completion Rate's own accent, distinct from Total Tasks's purple
+   (--secondary) now that both exist as separate cards. */
+.kpi-card.violet::after { background: linear-gradient(90deg, var(--violet), var(--violet-light)); }
 
 .kpi-card:hover {
   transform: translateY(-4px);
@@ -1140,6 +1254,65 @@ input, select, textarea {
   .kpi-card:hover { transform: none; }
 }
 
+/* Completion Rate card — always full-width on its own row (.kpi-completion-row
+   above) — a bare number in all that width reads as mostly empty space, so
+   this fills it with a fuller progress bar + the raw fraction behind the %. */
+.completion-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.completion-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.completion-card-detail {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: right;
+  line-height: 1.5;
+}
+.completion-bar-track {
+  margin-top: 10px;
+  width: 100%;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.completion-bar-fill {
+  position: relative;
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--violet), var(--violet-light));
+  overflow: hidden;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* The "liquid" shimmer — a soft diagonal highlight sweeping across the fill,
+   like light catching the surface of liquid in a tube. */
+.completion-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.45) 48%, transparent 66%);
+  background-size: 200% 100%;
+  animation: completion-bar-shimmer 2.5s ease-in-out infinite;
+}
+@keyframes completion-bar-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .completion-bar-fill { transition: none; }
+  .completion-bar-fill::after { animation: none; }
+}
+
 .kpi-icon {
   width: 48px;
   height: 48px;
@@ -1156,6 +1329,7 @@ input, select, textarea {
 .kpi-icon.amber { background: var(--warning-bg); color: var(--warning); }
 .kpi-icon.red { background: var(--danger-bg); color: var(--danger); }
 .kpi-icon.info { background: var(--info-bg); color: var(--info); }
+.kpi-icon.violet { background: var(--violet-bg); color: var(--violet); }
 
 .kpi-content { flex: 1; }
 
@@ -1385,6 +1559,17 @@ input, select, textarea {
 
 .btn-icon.text-primary,
 .btn-icon.text-primary:hover { color: var(--primary); }
+
+/* .btn-icon had no disabled treatment at all before the past-month task lock
+   — without this, a disabled icon button looked fully active while silently
+   doing nothing. Mirrors the existing .lead-export-item/.world-map-zoom-btn
+   disabled precedents already in this file. */
+.btn-icon:disabled,
+.btn-icon[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-icon:disabled:hover { transform: none; }
 
 /* Keyboard focus has to survive the gradient backgrounds, so it is an outline
    (drawn outside the border box) rather than a box-shadow that the bezel would
@@ -2316,6 +2501,10 @@ input, select, textarea {
 @media (max-width: 1024px) {
   .charts-grid {
     grid-template-columns: 1fr;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 

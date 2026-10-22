@@ -42,6 +42,10 @@ function AppContent() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedWebsite, setSelectedWebsite] = useState('all');
+  // Only meaningful for teams other than Digital Marketing (see
+  // supabase_projects_table.sql) — a project always belongs to one company,
+  // so picking a company narrows which projects this offers (handled below).
+  const [selectedProject, setSelectedProject] = useState('all');
   // Set when a Dashboard donut slice is clicked, so Schedule opens pre-filtered
   // to that category over the same period. The nonce lets the same category be
   // clicked twice in a row and still re-apply.
@@ -49,7 +53,7 @@ function AppContent() {
   // Same idea, for Dashboard's KPI cards (Total/Completed/Pending/Carried
   // Forward) opening Tasks Completed pre-filtered to that status.
   const [completedIntent, setCompletedIntent] = useState(null);
-  const { websites, loading, unitLabelPlural, teams, currentTeam } = useApp();
+  const { websites, projects, loading, unitLabelPlural, teams, currentTeam } = useApp();
   const { canViewAll, myEmployeeId, isSuperAdmin, canManageTeam, selectedTeamId, setSelectedTeamId } = useAuth();
   // One shared context object for every isTabAccessible() call below, so the
   // redirect effect, the renderPage() switch, and Layout.jsx's nav filter can
@@ -82,6 +86,18 @@ function AppContent() {
   useEffect(() => {
     try { sessionStorage.setItem('td_active_tab', activeTab); } catch { /* storage unavailable */ }
   }, [activeTab]);
+
+  // A project belongs to exactly one company — narrowing the company filter
+  // to one that doesn't contain the currently-selected project would
+  // otherwise leave an impossible combination selected (a project filter
+  // that can never match anything in the filtered company). Adjusted during
+  // render rather than in an effect, same reasoning as Schedule.jsx's own
+  // intent-handling below: it re-renders before painting, so the dropdown is
+  // already correct on the first frame rather than flashing the stale value.
+  if (selectedProject !== 'all' && selectedWebsite !== 'all') {
+    const project = projects.find(p => p.id === selectedProject);
+    if (!project || project.websiteId !== selectedWebsite) setSelectedProject('all');
+  }
 
   const handleCategoryDrill = ({ category, employee, period, month, year, website }) => {
     if (website !== undefined) setSelectedWebsite(website);
@@ -132,6 +148,26 @@ function AppContent() {
               {websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
+          {/* Digital Marketing never has Projects at all (see
+              supabase_projects_table.sql) — this filter only exists for
+              every other team. */}
+          {!currentTeam?.is_lead_source_team && (
+            <div className="filter-group">
+              <select value={selectedProject} onChange={e => setSelectedProject(e.target.value)}>
+                <option value="all">All Projects</option>
+                {projects
+                  .filter(p => selectedWebsite === 'all' || p.websiteId === selectedWebsite)
+                  .map(p => {
+                    const siteName = websites.find(w => w.id === p.websiteId)?.name;
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {selectedWebsite === 'all' && siteName ? `${siteName} — ${p.name}` : p.name}
+                      </option>
+                    );
+                  })}
+              </select>
+            </div>
+          )}
           <div className="filter-group">
             <CalendarDays size={15} style={{ color: 'var(--text-light)' }} />
             <select value={selectedMonth} onChange={e => setSelectedMonth(Number(e.target.value))}>
@@ -161,12 +197,12 @@ function AppContent() {
       case 'dashboard':
         return <Dashboard onCategoryDrill={handleCategoryDrill} onStatusDrill={handleStatusDrill} onNavigateToLeads={() => setActiveTab('leads')} />;
       case 'schedule':
-        return <Schedule selectedMonth={selectedMonth} selectedYear={selectedYear} selectedWebsite={selectedWebsite} intent={scheduleIntent} onIntentConsumed={clearScheduleIntent}
+        return <Schedule selectedMonth={selectedMonth} selectedYear={selectedYear} selectedWebsite={selectedWebsite} selectedProject={selectedProject} intent={scheduleIntent} onIntentConsumed={clearScheduleIntent}
           filterEmployee={scheduleFilterEmployee} setFilterEmployee={setScheduleFilterEmployee}
           filterCategory={scheduleFilterCategory} setFilterCategory={setScheduleFilterCategory}
         />;
       case 'completed':
-        return <TasksCompleted selectedMonth={selectedMonth} selectedYear={selectedYear} selectedWebsite={selectedWebsite} intent={completedIntent} onIntentConsumed={clearCompletedIntent}
+        return <TasksCompleted selectedMonth={selectedMonth} selectedYear={selectedYear} selectedWebsite={selectedWebsite} selectedProject={selectedProject} intent={completedIntent} onIntentConsumed={clearCompletedIntent}
           filterEmployee={completedFilterEmployee} setFilterEmployee={setCompletedFilterEmployee}
           filterStatus={completedFilterStatus} setFilterStatus={setCompletedFilterStatus}
           filterCategory={completedFilterCategory} setFilterCategory={setCompletedFilterCategory}

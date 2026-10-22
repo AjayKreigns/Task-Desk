@@ -2,22 +2,32 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
-import { CheckCircle2, Clock, X, Filter, Search, ArrowUpRight, Download, Eye, Trash2, Plus, Timer, ArrowRightCircle } from 'lucide-react';
+import { CheckCircle2, Clock, X, Filter, Search, ArrowUpRight, Download, Eye, Trash2, Plus, Timer, ArrowRightCircle, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import TaskDetailModal from '../components/TaskDetailModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { calcModalPosition } from '../lib/modalPosition';
 import { getTaskPercent, getTaskPendingPercent, isTaskExceeded, getEffectiveStatus } from '../lib/taskProgress';
 import { sanitizeExcelRow } from '../lib/excelSafety';
+import { isPastPeriod } from '../lib/periodLock';
 import ModalPortal from '../components/ModalPortal';
 import PeriodToggle from '../components/PeriodToggle';
 import CarryForwardWarningBanner from '../components/CarryForwardWarningBanner';
 
 import confetti from 'canvas-confetti';
 
-export default function TasksCompleted({ selectedMonth, selectedYear, selectedWebsite, intent, onIntentConsumed, filterEmployee, setFilterEmployee, filterStatus, setFilterStatus, filterCategory, setFilterCategory }) {
-  const { tasks, tasksById, employees, websites, categories, addTask, completeTask, deleteTask, updateTask, getEmployeeName, getWebsiteName, unitLabel } = useApp();
-  const { canManageTeam, isViewer, canViewAll, myEmployeeId, isMe } = useAuth();
+export default function TasksCompleted({ selectedMonth, selectedYear, selectedWebsite, selectedProject, intent, onIntentConsumed, filterEmployee, setFilterEmployee, filterStatus, setFilterStatus, filterCategory, setFilterCategory }) {
+  const { tasks, tasksById, employees, websites, categories, projects, addTask, completeTask, deleteTask, updateTask, getEmployeeName, getWebsiteName, getProjectName, unitLabel, currentTeam } = useApp();
+  // Digital Marketing never has Projects — see supabase_projects_table.sql.
+  const showProjects = !currentTeam?.is_lead_source_team;
+  const { canManageTeam, isViewer, canViewAll, myEmployeeId, isMe, isSuperAdmin } = useAuth();
+  // Only a super admin may still add/complete/log-hours/delete once a
+  // period has ended — a team's own admin (canManageTeam is true for both)
+  // is locked out too, same rule as Schedule.jsx.
+  const periodLocked = isPastPeriod(selectedMonth, selectedYear) && !isSuperAdmin;
+  const periodLockedTitle = periodLocked
+    ? `Can't add tasks to ${new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })} — it has ended`
+    : undefined;
   const { notify } = useNotification();
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showAddAdditionalModal, setShowAddAdditionalModal] = useState(false);
@@ -104,9 +114,10 @@ export default function TasksCompleted({ selectedMonth, selectedYear, selectedWe
     return tasks.filter(t =>
       (isYearView || t.month === selectedMonth) &&
       t.year === selectedYear &&
-      (selectedWebsite === 'all' || t.websiteId === selectedWebsite)
+      (selectedWebsite === 'all' || t.websiteId === selectedWebsite) &&
+      (selectedProject === 'all' || t.projectId === selectedProject)
     );
-  }, [tasks, isYearView, selectedMonth, selectedYear, selectedWebsite]);
+  }, [tasks, isYearView, selectedMonth, selectedYear, selectedWebsite, selectedProject]);
 
   const availableCategories = useMemo(() => {
     const inPeriod = new Set(periodTasks.map(t => t.category || 'General'));
@@ -184,6 +195,7 @@ export default function TasksCompleted({ selectedMonth, selectedYear, selectedWe
       ...(isYearView ? { 'Month': new Date(t.year, t.month - 1).toLocaleString('default', { month: 'short' }) } : {}),
       'Task': t.title, 'Category': t.category || 'General',
       'Assigned To': getEmployeeName(t.assignedTo), [unitLabel]: getWebsiteName(t.websiteId),
+      ...(showProjects ? { 'Project': t.projectId ? getProjectName(t.projectId) : '' } : {}),
       'Status': t.status, 'Targeted Hrs': t.targetedTime || 0, 'Booked Hrs': t.timeTaken || 0,
       'Completed Date': t.completedDate ? new Date(t.completedDate).toLocaleDateString('en-IN') : '',
       'Proof URL': t.completionUrl || '',
@@ -201,7 +213,7 @@ export default function TasksCompleted({ selectedMonth, selectedYear, selectedWe
     <div className="animate-in">
       <div className="page-header">
         <div>
-          <h3>Tasks Completed</h3>
+          <h3>Task Status</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '4px' }}>
             {isYearView ? `All of ${selectedYear}` : new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
             {filterCategory !== 'all' && ` • ${filterCategory}`}
@@ -213,7 +225,7 @@ export default function TasksCompleted({ selectedMonth, selectedYear, selectedWe
           <span className="badge badge-pending" style={{ padding: '6px 14px', fontSize: '0.82rem' }}><Clock size={14} /> {pendingCount} Pending</span>
           <span className="badge badge-info" style={{ padding: '6px 14px', fontSize: '0.82rem' }}><ArrowRightCircle size={14} /> {carriedForwardCount} Carried Forward</span>
           {filteredTasks.length > 0 && <button className="btn btn-secondary btn-sm" onClick={exportExcel}><Download size={14} /> Excel</button>}
-          {!isViewer && <button className="btn btn-primary btn-sm" onClick={(e) => handleOpenModal(e, setShowAddAdditionalModal, true)}><Plus size={14} /> Add Task</button>}
+          {!isViewer && <button className="btn btn-primary btn-sm" disabled={periodLocked} title={periodLockedTitle} onClick={(e) => handleOpenModal(e, setShowAddAdditionalModal, true)}><Plus size={14} /> Add Additional Task</button>}
         </div>
       </div>
 
@@ -269,9 +281,11 @@ export default function TasksCompleted({ selectedMonth, selectedYear, selectedWe
       ) : (
         <div className="card" style={{ overflowX: 'auto' }}>
           <table className="data-table">
-            <thead><tr><th>Task</th>{isYearView && <th>Month</th>}<th>Category</th><th>Assigned To</th><th>{unitLabel}</th><th>Status</th><th>Completed Date</th><th>Proof URL</th><th>Action</th></tr></thead>
+            <thead><tr><th>Task</th>{isYearView && <th>Month</th>}<th>Category</th><th>Assigned To</th><th>{unitLabel}</th>{showProjects && <th>Project</th>}<th>Status</th><th>Completed Date</th><th>Proof URL</th><th>Action</th></tr></thead>
             <tbody>
-              {filteredTasks.map(task => (
+              {filteredTasks.map(task => {
+                const rowLocked = isPastPeriod(task.month, task.year) && !isSuperAdmin;
+                return (
                 <tr key={task.id} style={task.status === 'completed' ? { background: 'var(--success-bg)' } : {}}>
                   <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -298,6 +312,9 @@ export default function TasksCompleted({ selectedMonth, selectedYear, selectedWe
                     <span>{getEmployeeName(task.assignedTo)}</span>
                   </div></td>
                   <td style={{ fontSize: '0.85rem' }}>{getWebsiteName(task.websiteId)}</td>
+                  {showProjects && (
+                    <td style={{ fontSize: '0.85rem' }}>{task.projectId ? getProjectName(task.projectId) : <span style={{ color: 'var(--text-light)' }}>—</span>}</td>
+                  )}
                   <td style={{ minWidth: '150px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {(() => {
@@ -346,23 +363,24 @@ export default function TasksCompleted({ selectedMonth, selectedYear, selectedWe
                         write control in this app. */}
                     {!isViewer && (task.status !== 'completed' ? (
                       <>
-                        <button className="btn-icon" style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => openLogTimeModal(task)} title="Log Hours"><Timer size={14} /> Log Hours</button>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', cursor: 'pointer', color: 'var(--text-muted)', userSelect: 'none' }} title="Mark Completed">
-                          <input type="checkbox" checked={false} onChange={() => openCompleteModal(task)} style={{ width: 15, height: 15, cursor: 'pointer' }} />
+                        <button className="btn-icon" disabled={rowLocked} style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => openLogTimeModal(task)} title={rowLocked ? "This task's month has ended — only a super admin can log hours now" : "Log Hours"}><Timer size={14} /> Log Hours</button>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem', cursor: rowLocked ? 'not-allowed' : 'pointer', color: 'var(--text-muted)', opacity: rowLocked ? 0.4 : 1, userSelect: 'none' }} title={rowLocked ? "This task's month has ended — only a super admin can complete it now" : "Mark Completed"}>
+                          <input type="checkbox" checked={false} disabled={rowLocked} onChange={() => openCompleteModal(task)} style={{ width: 15, height: 15, cursor: rowLocked ? 'not-allowed' : 'pointer' }} />
                           Mark Completed
                         </label>
                       </>
                     ) : (
-                      <button className="btn-icon text-primary" style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => openCompleteModal(task)} title="Update Time"><Clock size={14} /> Update Time</button>
+                      <button className="btn-icon text-primary" disabled={rowLocked} style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => openCompleteModal(task)} title={rowLocked ? "This task's month has ended — only a super admin can update it now" : "Update Time"}><Clock size={14} /> Update Time</button>
                     ))}
                     {/* Matches the tasks DELETE policy exactly: admin, or the
                         task's own assignee (and never a viewer). */}
                     {(canManageTeam || (!isViewer && isMe(task.assignedTo))) && (
-                      <button className="btn-icon text-danger" onClick={() => handleDelete(task)} title="Delete"><Trash2 size={15} /></button>
+                      <button className="btn-icon text-danger" disabled={rowLocked} title={rowLocked ? "This task's month has ended — only a super admin can delete it now" : "Delete"} onClick={() => handleDelete(task)}><Trash2 size={15} /></button>
                     )}
                   </div></td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -433,6 +451,8 @@ export default function TasksCompleted({ selectedMonth, selectedYear, selectedWe
           employees={employees}
           websites={websites}
           categories={categories}
+          projects={projects}
+          showProjects={showProjects}
           unitLabel={unitLabel}
           onAdd={handleAddAdditional}
           onClose={() => setShowAddAdditionalModal(false)}
@@ -453,7 +473,7 @@ export default function TasksCompleted({ selectedMonth, selectedYear, selectedWe
   );
 }
 
-function AddAdditionalTaskModal({ employees, websites, categories, unitLabel, onAdd, onClose, position }) {
+function AddAdditionalTaskModal({ employees, websites, categories, projects, showProjects, unitLabel, onAdd, onClose, position }) {
   const { canManageTeam, myEmployeeId } = useAuth();
   // Additional tasks are inherently a member logging their own extra work, so
   // this pre-fills to the signed-in person rather than starting blank — a
@@ -463,6 +483,7 @@ function AddAdditionalTaskModal({ employees, websites, categories, unitLabel, on
     category: '',
     assignedTo: canManageTeam ? '' : (myEmployeeId || ''),
     websiteId: '',
+    projectId: '',
     status: 'completed',
     completionUrl: '',
     referenceUrl: '',
@@ -471,6 +492,11 @@ function AddAdditionalTaskModal({ employees, websites, categories, unitLabel, on
   });
 
   const { originStyle } = calcModalPosition(position);
+  const siteProjects = showProjects ? projects.filter(p => p.websiteId === form.websiteId) : [];
+  const handleWebsiteChange = (websiteId) => {
+    const stillValid = projects.some(p => p.id === form.projectId && p.websiteId === websiteId);
+    setForm({ ...form, websiteId, projectId: stillValid ? form.projectId : '' });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -481,6 +507,7 @@ function AddAdditionalTaskModal({ employees, websites, categories, unitLabel, on
       category: form.category,
       assignedTo: form.assignedTo,
       websiteId: form.websiteId,
+      projectId: form.projectId,
       status: form.status,
       referenceUrl: form.referenceUrl,
       completionUrl: form.status === 'completed' ? form.completionUrl : '',
@@ -500,6 +527,10 @@ function AddAdditionalTaskModal({ employees, websites, categories, unitLabel, on
       </div>
       <form onSubmit={handleSubmit}>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 14px', background: 'var(--warning-bg)', color: 'var(--warning)', borderRadius: 'var(--radius-md)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+            <span>Tasks added here are logged as <strong>additional tasks</strong> — extra work completed outside the regular schedule. They're tracked separately from this employee's originally scheduled tasks.</span>
+          </div>
           <div className="form-group">
             <label className="form-label">Task Title *</label>
             <input 
@@ -540,13 +571,23 @@ function AddAdditionalTaskModal({ employees, websites, categories, unitLabel, on
             </div>
             <div className="form-group">
               <label className="form-label">{unitLabel} *</label>
-              <select className="form-select" required value={form.websiteId} onChange={e => setForm({ ...form, websiteId: e.target.value })}>
+              <select className="form-select" required value={form.websiteId} onChange={e => handleWebsiteChange(e.target.value)}>
                 <option value="" disabled>Select {unitLabel}</option>
                 {websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
             </div>
           </div>
-          
+
+          {showProjects && (
+            <div className="form-group">
+              <label className="form-label">Project (Optional)</label>
+              <select className="form-select" value={form.projectId} onChange={e => setForm({ ...form, projectId: e.target.value })} disabled={!form.websiteId}>
+                <option value="">{form.websiteId ? 'None' : `Select a ${unitLabel} first`}</option>
+                {siteProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          )}
+
           {form.status === 'completed' && (
             <div className="form-group animate-in">
               <label className="form-label">Completion URL / Proof of Work (Optional)</label>

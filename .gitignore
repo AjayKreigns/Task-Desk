@@ -29,6 +29,12 @@ docs/
 scripts/
 test-supabase.mjs
 
+# Netlify Functions — deployed straight to Netlify via `netlify deploy`, which
+# reads from local disk, not from git, so being gitignored here doesn't stop
+# them from deploying. Holds references to the service-role key and SMTP
+# credentials via env vars; same "frontend-only repo" reasoning as above.
+netlify/functions/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -11,6 +11,7 @@ import {
   DEFAULT_CATEGORIES, CATEGORY_PALETTE, normalizeHex, defaultCategoryColor,
 } from '../lib/categories';
 import { normalizeRole } from '../lib/roles';
+import { callNotifyFunction } from '../lib/notifyFn';
 
 const AppContext = createContext();
 
@@ -19,6 +20,7 @@ const AppContext = createContext();
 const TEAM_PERMISSION_MSG = 'Only an administrator can change the team list.';
 const SITE_PERMISSION_MSG = 'Only an administrator can change the website list.';
 const CATEGORY_PERMISSION_MSG = 'Only an administrator can change the category list.';
+const PROJECT_PERMISSION_MSG = 'Only an administrator can change the project list.';
 
 const STORAGE_KEYS = {
   employees: 'td_employees',
@@ -29,6 +31,7 @@ const STORAGE_KEYS = {
   categories: 'td_categories_v2',
   teams: 'td_teams',
   leads: 'td_leads',
+  projects: 'td_projects',
 };
 
 const LEAD_PERMISSION_MSG = 'Could not save this - you may need to sign in again.';
@@ -67,6 +70,18 @@ function mapCategoryFromDB(row) {
     name: row.name,
     color: row.color,
     hidden: row.hidden || false,
+  };
+}
+
+// Helper: convert a Supabase projects row to app format. A project belongs
+// to exactly one company (websiteId) — see supabase_projects_table.sql.
+function mapProjectFromDB(row) {
+  return {
+    id: row.id,
+    teamId: row.team_id,
+    websiteId: row.website_id,
+    name: row.name,
+    description: row.description || '',
   };
 }
 
@@ -118,6 +133,7 @@ function mapTaskFromDB(row) {
     category: row.category || 'General',
     assignedTo: row.assigned_to || '',
     websiteId: row.website_id || '',
+    projectId: row.project_id || '',
     priority: row.priority || 'medium',
     status: row.status === 'completed' ? 'completed' : 'pending',
     referenceUrl: row.reference_url || '',
@@ -147,6 +163,7 @@ function mapTaskToDB(task) {
     category: task.category || 'General',
     assigned_to: task.assignedTo || null,
     website_id: task.websiteId || null,
+    project_id: task.projectId || null,
     priority: task.priority || 'medium',
     status: dbStatus,
     progress: getTaskPercent(task),
@@ -206,6 +223,9 @@ export function AppProvider({ children }) {
   const [categoryRows, setCategoryRows] = useState(() => loadFromStorage(STORAGE_KEYS.categories, seedCategories));
   const [teams, setTeams] = useState(() => loadFromStorage(STORAGE_KEYS.teams, seedTeams));
   const [leads, setLeads] = useState(() => loadFromStorage(STORAGE_KEYS.leads, []));
+  // No local-only seed — local-only mode's one fixed team is always the
+  // Digital Marketing shape (defaultTeams above), which never uses Projects.
+  const [projects, setProjects] = useState(() => loadFromStorage(STORAGE_KEYS.projects, []));
   // Reachability + authorisation, as opposed to isCloud's "are we configured".
   //   'local'        no backend at all
   //   'connecting'   credentials exist, first fetch in flight
@@ -326,12 +346,13 @@ export function AppProvider({ children }) {
         // already return just their own team's rows unfiltered.
         const scope = (query) => (isSuperAdmin && selectedTeamId ? query.eq('team_id', selectedTeamId) : query);
 
-        const [empRes, siteRes, taskRes, catRes, leadRes] = await Promise.all([
+        const [empRes, siteRes, taskRes, catRes, leadRes, projRes] = await Promise.all([
           scope(supabase.from('employees').select('*')).order('created_at'),
           scope(supabase.from('websites').select('*')).order('created_at'),
           scope(supabase.from('tasks').select('*')).order('created_at'),
           scope(supabase.from('categories').select('*')).order('created_at'),
           supabase.from('leads').select('*').order('created_at', { ascending: false }),
+          scope(supabase.from('projects').select('*')).order('created_at'),
         ]);
         if (cancelled) return;
 
@@ -340,12 +361,12 @@ export function AppProvider({ children }) {
         // { data: null, error } and fell through every `if (res.data)` guard with
         // no console output and no toast — the dashboard just looked empty.
         //
-        // leadRes and catRes are deliberately NOT part of this — leads and
-        // categories are both newer tables than employees/websites/tasks, so
-        // an install that hasn't yet run their migrations would otherwise see
-        // the ENTIRE dashboard fail to load over one missing table. A failed
-        // fetch for either degrades only its own feature, handled separately
-        // below.
+        // leadRes, catRes and projRes are deliberately NOT part of this —
+        // leads, categories and projects are all newer tables than
+        // employees/websites/tasks, so an install that hasn't yet run their
+        // migrations would otherwise see the ENTIRE dashboard fail to load
+        // over one missing table. A failed fetch for any of them degrades
+        // only its own feature, handled separately below.
         const firstError = empRes.error || siteRes.error || taskRes.error;
         if (firstError) {
           const { kind, message } = classifyDbError(firstError);
@@ -372,6 +393,11 @@ export function AppProvider({ children }) {
           console.warn('Leads fetch failed (has supabase_leads_table.sql been run?):', leadRes.error);
         } else if (leadRes.data) {
           setLeads(leadRes.data.map(mapLeadFromDB));
+        }
+        if (projRes.error) {
+          console.warn('Projects fetch failed (has supabase_projects_table.sql been run?):', projRes.error);
+        } else if (projRes.data) {
+          setProjects(projRes.data.map(mapProjectFromDB));
         }
         setCloudStatus('ready');
         setCloudError(null);
@@ -475,6 +501,22 @@ export function AppProvider({ children }) {
           setCategoryRows(prev => prev.filter(x => x.id !== payload.old.id));
         }
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          const p = payload.new;
+          if (crossTeamLeak(p)) return;
+          setProjects(prev => {
+            if (prev.find(x => x.id === p.id)) return prev;
+            return [...prev, mapProjectFromDB(p)];
+          });
+        } else if (payload.eventType === 'UPDATE') {
+          const p = payload.new;
+          if (crossTeamLeak(p)) return;
+          setProjects(prev => prev.map(x => x.id === p.id ? mapProjectFromDB(p) : x));
+        } else if (payload.eventType === 'DELETE') {
+          setProjects(prev => prev.filter(x => x.id !== payload.old.id));
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, (payload) => {
         if (payload.eventType === 'INSERT') {
           const l = mapLeadFromDB(payload.new);
@@ -511,6 +553,7 @@ export function AppProvider({ children }) {
   useEffect(() => { saveToStorage(STORAGE_KEYS.categories, categoryRows); }, [categoryRows]);
   useEffect(() => { saveToStorage(STORAGE_KEYS.teams, teams); }, [teams]);
   useEffect(() => { saveToStorage(STORAGE_KEYS.leads, leads); }, [leads]);
+  useEffect(() => { saveToStorage(STORAGE_KEYS.projects, projects); }, [projects]);
 
   // === ACTIVITY LOG ===
   const logActivity = useCallback((action, taskTitle, details = '', taskId = '') => {
@@ -562,12 +605,18 @@ export function AppProvider({ children }) {
         if (prev.find(x => x.id === newEmp.id)) return prev;
         return [...prev, newEmp];
       });
+      // Fire-and-forget — email is optional in the Add Employee form, so a
+      // blank one is a normal, silent no-op on the function's side, not
+      // something worth checking for here too.
+      if (newEmp.email) {
+        callNotifyFunction('invite-employee', { employeeId: newEmp.id }, authCtx?.session?.access_token);
+      }
       return newEmp;
     }
     const newEmp = { ...emp, role, id: uuidv4() };
     setEmployees(prev => [...prev, newEmp]);
     return newEmp;
-  }, [isCloud, dbRun, selectedTeamId]);
+  }, [isCloud, dbRun, selectedTeamId, authCtx]);
 
   const updateEmployee = useCallback(async (id, data) => {
     if (isCloud) {
@@ -703,6 +752,69 @@ export function AppProvider({ children }) {
     setWebsites(prev => prev.filter(w => w.id !== id));
   }, [isCloud, dbRun, reportBlocked]);
 
+  // === PROJECT OPERATIONS ===
+  // Not offered at all in local-only mode or for Digital Marketing — see
+  // supabase_projects_table.sql's header comment. A project always belongs
+  // to exactly one company (websiteId), set at creation and editable
+  // afterward like any other field.
+  const addProject = useCallback(async (project) => {
+    if (isCloud) {
+      const { data, error } = await dbRun(
+        'Could not add project',
+        () => supabase.from('projects').insert({
+          name: project.name, description: project.description || '',
+          website_id: project.websiteId, team_id: selectedTeamId,
+        }).select().single(),
+        PROJECT_PERMISSION_MSG,
+      );
+      if (error || !data) return null;
+      const newProject = mapProjectFromDB(data);
+      setProjects(prev => (prev.find(x => x.id === newProject.id) ? prev : [...prev, newProject]));
+      return newProject;
+    }
+    const newProject = { ...project, id: uuidv4() };
+    setProjects(prev => [...prev, newProject]);
+    return newProject;
+  }, [isCloud, dbRun, selectedTeamId]);
+
+  const updateProject = useCallback(async (id, data) => {
+    if (isCloud) {
+      const { data: rows, error } = await dbRun(
+        'Could not save project',
+        () => supabase.from('projects').update({
+          name: data.name, description: data.description || '', website_id: data.websiteId,
+        }).eq('id', id).select('id'),
+        PROJECT_PERMISSION_MSG,
+      );
+      if (error) return;
+      if (Array.isArray(rows) && rows.length === 0) {
+        reportBlocked('Could not save project', PROJECT_PERMISSION_MSG);
+        return;
+      }
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+      return;
+    }
+    setProjects(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+  }, [isCloud, dbRun, reportBlocked]);
+
+  const deleteProject = useCallback(async (id) => {
+    if (isCloud) {
+      const { data: rows, error } = await dbRun(
+        'Could not remove project',
+        () => supabase.from('projects').delete().eq('id', id).select('id'),
+        PROJECT_PERMISSION_MSG,
+      );
+      if (error) return;
+      if (Array.isArray(rows) && rows.length === 0) {
+        reportBlocked('Could not remove project', PROJECT_PERMISSION_MSG);
+        return;
+      }
+      setProjects(prev => prev.filter(p => p.id !== id));
+      return;
+    }
+    setProjects(prev => prev.filter(p => p.id !== id));
+  }, [isCloud, dbRun, reportBlocked]);
+
   // === TASK OPERATIONS ===
   const addTask = useCallback(async (task) => {
     if (isCloud) {
@@ -727,6 +839,7 @@ export function AppProvider({ children }) {
         return [...prev, mapped];
       });
       logActivity('Task Created', mapped.title, 'New task scheduled', mapped.id);
+      callNotifyFunction('send-task-notification', { type: 'assigned', taskIds: [mapped.id] }, authCtx?.session?.access_token);
       return mapped;
     }
     const newTask = {
@@ -743,7 +856,7 @@ export function AppProvider({ children }) {
     setTasks(prev => [...prev, newTask]);
     logActivity('Task Created', newTask.title, 'New task scheduled', newTask.id);
     return newTask;
-  }, [isCloud, logActivity, warnMissingColumn, notificationCtx, handleAuthError]);
+  }, [isCloud, logActivity, warnMissingColumn, notificationCtx, handleAuthError, authCtx]);
 
   const addBulkTasks = useCallback(async (taskList) => {
     if (isCloud) {
@@ -762,12 +875,15 @@ export function AppProvider({ children }) {
         const newItems = mapped.filter(m => !prev.find(p => p.id === m.id));
         return [...prev, ...newItems];
       });
+      if (mapped.length) {
+        callNotifyFunction('send-task-notification', { type: 'assigned', taskIds: mapped.map(m => m.id) }, authCtx?.session?.access_token);
+      }
       return mapped;
     }
     const newTasks = taskList.map(t => ({ ...t, id: uuidv4(), status: 'pending', completionUrl: '', completedDate: null, createdAt: new Date().toISOString() }));
     setTasks(prev => [...prev, ...newTasks]);
     return newTasks;
-  }, [isCloud, warnMissingColumn, notificationCtx]);
+  }, [isCloud, warnMissingColumn, notificationCtx, authCtx]);
 
   // Returns true only once the change is confirmed saved (or there is no server to
   // reject it). Callers use this to decide whether to show their own success
@@ -849,12 +965,13 @@ export function AppProvider({ children }) {
 
       setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'completed', completionUrl, timeTaken, completedDate: new Date().toISOString() } : t));
       logActivity('Task Completed', task?.title || '', 'Marked as completed', id);
+      callNotifyFunction('send-task-notification', { type: 'completed', taskId: id }, authCtx?.session?.access_token);
       return true;
     }
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'completed', completionUrl, timeTaken, completedDate: new Date().toISOString() } : t));
     logActivity('Task Completed', task?.title || '', 'Marked as completed', id);
     return true;
-  }, [isCloud, tasks, logActivity, warnMissingColumn, notificationCtx, reportBlocked, handleAuthError]);
+  }, [isCloud, tasks, logActivity, warnMissingColumn, notificationCtx, reportBlocked, handleAuthError, authCtx]);
 
   const deleteTask = useCallback(async (id) => {
     const task = tasks.find(t => t.id === id);
@@ -1067,6 +1184,11 @@ export function AppProvider({ children }) {
     return site ? site.name : 'Unknown';
   }, [websites]);
 
+  const getProjectName = useCallback((id) => {
+    const project = projects.find(p => p.id === id);
+    return project ? project.name : '';
+  }, [projects]);
+
   // === CATEGORIES ===
   // Every category is a real row in the `categories` table now (per-team,
   // synced via Supabase) — categoryRows IS the source of truth, not a
@@ -1267,7 +1389,7 @@ export function AppProvider({ children }) {
   );
 
   const exportData = useCallback(() => {
-    const data = { employees, websites, tasks, categories: categoryRows, exportDate: new Date().toISOString() };
+    const data = { employees, websites, tasks, categories: categoryRows, projects, exportDate: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1275,7 +1397,7 @@ export function AppProvider({ children }) {
     a.download = `team-dashboard-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [employees, websites, tasks, categoryRows]);
+  }, [employees, websites, tasks, categoryRows, projects]);
 
   const importData = useCallback((jsonData) => {
     try {
@@ -1284,6 +1406,7 @@ export function AppProvider({ children }) {
       if (data.websites) setWebsites(data.websites);
       if (data.tasks) setTasks(data.tasks);
       if (data.categories) setCategoryRows(data.categories);
+      if (data.projects) setProjects(data.projects);
       return true;
     } catch (e) { console.error('Import failed:', e); return false; }
   }, []);
@@ -1334,6 +1457,7 @@ export function AppProvider({ children }) {
     countTasksInCategory, reassignCategory,
     addEmployee, updateEmployee, deleteEmployee,
     addWebsite, updateWebsite, deleteWebsite,
+    projects, addProject, updateProject, deleteProject, getProjectName,
     addTask, addBulkTasks, updateTask, completeTask, deleteTask,
     leads, addLead, addLeadsBulk, updateLead, deleteLead, deleteLeadsBulk,
     getEmployeeName, getWebsiteName,

@@ -44,7 +44,7 @@ export default function Layout({ activeTab, setActiveTab, children }) {
   const navItems = [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Main' },
     { key: 'schedule', label: 'Schedule', icon: CalendarDays, section: 'Main' },
-    { key: 'completed', label: 'Tasks Completed', icon: CheckCircle2, section: 'Main' },
+    { key: 'completed', label: 'Task Status', icon: CheckCircle2, section: 'Main' },
     { key: 'report', label: 'Monthly Report', icon: FileText, section: 'Main' },
     { key: 'myday', label: 'My Day', icon: ListChecks, section: 'Main' },
     { key: 'leads', label: 'Lead Center', icon: Inbox, section: 'Main' },
@@ -118,7 +118,7 @@ export default function Layout({ activeTab, setActiveTab, children }) {
         </div>
 
         <div className="sidebar-brand">
-          <img src="/logo.png" alt="Logo" style={{ height: '40px', marginBottom: '8px', objectFit: 'contain' }} />
+          <img src="/logo.png" alt="Logo" className="sidebar-logo" />
           <h1>iFe Desk</h1>
           <p>{currentTeam ? `${currentTeam.name} Operations` : 'Team Operations'}</p>
         </div>
@@ -151,7 +151,7 @@ export default function Layout({ activeTab, setActiveTab, children }) {
             <div className="sidebar-stats">
               <div className="sidebar-stat">
                 <span className="sidebar-stat-value">{myScheduledCount}</span>
-                <span className="sidebar-stat-label">Scheduled</span>
+                <span className="sidebar-stat-label">Tasks</span>
               </div>
               <div className="sidebar-stat-divider" />
               <div className="sidebar-stat">

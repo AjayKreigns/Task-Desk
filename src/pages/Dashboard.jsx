@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { CalendarDays, CheckCircle2, Clock, TrendingUp, Users, Globe, ArrowUpRight, Activity, ChevronDown, ArrowRightCircle } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock, TrendingUp, Users, Globe, ArrowUpRight, Activity, ChevronDown, ArrowRightCircle, ListPlus, Layers } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   PieChart, Pie, Cell, Sector,
@@ -55,6 +55,8 @@ export default function Dashboard({ onCategoryDrill, onStatusDrill, onNavigateTo
   // is exactly where the old single-bucket count was most misleading.
   const pendingTasks = filteredTasks.filter(t => !t.isAdditional && t.status !== 'completed' && !isCarriedForward(t)).length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const additionalTasks = filteredTasks.filter(t => t.isAdditional).length;
+  const totalAllTasks = totalTasks + additionalTasks;
 
   // Chart: Scheduled vs Completed by Website
   const websiteChartData = useMemo(() => {
@@ -295,41 +297,76 @@ export default function Dashboard({ onCategoryDrill, onStatusDrill, onNavigateTo
         </p>
       </motion.div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards — a fixed-column grid, not flex-wrap: its column count must
+          depend only on viewport width (@media breakpoints in index.css), not
+          on how much space happens to be free, so collapsing the sidebar
+          never reflows this row on its own. */}
       <motion.div variants={itemVariants} className="kpi-grid">
-        <div className="kpi-card blue clickable" onClick={() => drillIntoStatus('all')} title="View these tasks in Tasks Completed">
+        <div className="kpi-card purple">
+          <div className="kpi-icon purple"><Layers size={24} /></div>
+          <div className="kpi-content">
+            <div className="kpi-label">Total Tasks</div>
+            <div className="kpi-value"><AnimatedCounter to={totalAllTasks} /></div>
+          </div>
+        </div>
+        <div className="kpi-card blue clickable" onClick={() => drillIntoStatus('all')} title="View these tasks in Task Status">
           <div className="kpi-icon blue"><CalendarDays size={24} /></div>
           <div className="kpi-content">
             <div className="kpi-label">Total Scheduled</div>
             <div className="kpi-value"><AnimatedCounter to={totalTasks} /></div>
           </div>
         </div>
-        <div className="kpi-card green clickable" onClick={() => drillIntoStatus('completed')} title="View these tasks in Tasks Completed">
+        <div className="kpi-card red">
+          <div className="kpi-icon red"><ListPlus size={24} /></div>
+          <div className="kpi-content">
+            <div className="kpi-label">Additional Tasks</div>
+            <div className="kpi-value"><AnimatedCounter to={additionalTasks} /></div>
+          </div>
+        </div>
+        <div className="kpi-card green clickable" onClick={() => drillIntoStatus('completed')} title="View these tasks in Task Status">
           <div className="kpi-icon green"><CheckCircle2 size={24} /></div>
           <div className="kpi-content">
             <div className="kpi-label">Completed</div>
             <div className="kpi-value"><AnimatedCounter to={completedTasks} /></div>
           </div>
         </div>
-        <div className="kpi-card amber clickable" onClick={() => drillIntoStatus('pending')} title="View these tasks in Tasks Completed">
+        <div className="kpi-card amber clickable" onClick={() => drillIntoStatus('pending')} title="View these tasks in Task Status">
           <div className="kpi-icon amber"><Clock size={24} /></div>
           <div className="kpi-content">
             <div className="kpi-label">Pending</div>
             <div className="kpi-value"><AnimatedCounter to={pendingTasks} /></div>
           </div>
         </div>
-        <div className="kpi-card info clickable" onClick={() => drillIntoStatus('carried_forward')} title="View these tasks in Tasks Completed">
+        <div className="kpi-card info clickable" onClick={() => drillIntoStatus('carried_forward')} title="View these tasks in Task Status">
           <div className="kpi-icon info"><ArrowRightCircle size={24} /></div>
           <div className="kpi-content">
             <div className="kpi-label">Carried Forward</div>
             <div className="kpi-value"><AnimatedCounter to={carriedForwardTasks} /></div>
           </div>
         </div>
-        <div className="kpi-card purple">
-          <div className="kpi-icon purple"><TrendingUp size={24} /></div>
-          <div className="kpi-content">
-            <div className="kpi-label">Completion Rate</div>
-            <div className="kpi-value"><AnimatedCounter to={completionRate} />%</div>
+      </motion.div>
+
+      {/* Completion Rate always gets its own full-width row, regardless of
+          viewport — it's a wide progress-bar layout, not another count tile,
+          so it never belongs packed in next to the cards above. */}
+      <motion.div variants={itemVariants} className="kpi-completion-row">
+        <div className="kpi-card violet">
+          <div className="kpi-icon violet"><TrendingUp size={24} /></div>
+          <div className="completion-card-body">
+            <div className="completion-card-top">
+              <div>
+                <div className="kpi-label">Completion Rate</div>
+                <div className="kpi-value"><AnimatedCounter to={completionRate} />%</div>
+              </div>
+              <div className="completion-card-detail">
+                <strong style={{ color: 'var(--text-primary)' }}>{completedTasks}</strong> of {totalTasks} scheduled tasks completed
+                <br />
+                {Math.max(totalTasks - completedTasks, 0)} remaining to reach 100%
+              </div>
+            </div>
+            <div className="completion-bar-track">
+              <div className="completion-bar-fill" style={{ width: `${completionRate}%` }} />
+            </div>
           </div>
         </div>
       </motion.div>

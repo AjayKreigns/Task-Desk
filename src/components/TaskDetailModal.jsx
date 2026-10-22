@@ -15,7 +15,7 @@ function timeAgo(ts) {
 }
 
 export default function TaskDetailModal({ task, onClose, position }) {
-  const { tasks, tasksById, getEmployeeName, getWebsiteName, addComment, getTaskComments, activityLog, updateTask, unitLabel } = useApp();
+  const { tasks, tasksById, getEmployeeName, getWebsiteName, getProjectName, addComment, getTaskComments, activityLog, updateTask, unitLabel, currentTeam } = useApp();
   const { notify } = useNotification();
   const [activeTab, setActiveTab] = useState('comments');
   const [newComment, setNewComment] = useState('');
@@ -60,6 +60,9 @@ export default function TaskDetailModal({ task, onClose, position }) {
             <span><strong>Category:</strong> {task.category || 'General'}</span>
             <span><strong>Assigned:</strong> {getEmployeeName(task.assignedTo)}</span>
             <span><strong>{unitLabel}:</strong> {getWebsiteName(task.websiteId)}</span>
+            {!currentTeam?.is_lead_source_team && task.projectId && (
+              <span><strong>Project:</strong> {getProjectName(task.projectId)}</span>
+            )}
             <span><strong>Priority:</strong> <span className={`badge badge-${task.priority || 'medium'}`}>{task.priority || 'Medium'}</span></span>
             {(() => {
               // Follows carryForwardTo to wherever the work actually ended up —

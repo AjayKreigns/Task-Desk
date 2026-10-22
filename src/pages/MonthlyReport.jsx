@@ -2,13 +2,13 @@ import React, { useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
-import { FileDown, CalendarDays, CheckCircle2, Clock, TrendingUp, ArrowRightCircle, Inbox, XCircle } from 'lucide-react';
+import { FileDown, CalendarDays, CheckCircle2, Clock, TrendingUp, ArrowRightCircle, Inbox, XCircle, Layers, ListPlus } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { getTaskPercent, getTaskPendingPercent, isCarriedForward, getEffectiveStatus } from '../lib/taskProgress';
 import PeriodToggle from '../components/PeriodToggle';
 import {
-  drawKpiCards, drawDonutChart, drawHorizontalBars,
+  drawKpiCards, drawCompletionCard, drawDonutChart, drawHorizontalBars,
   drawTrendChart, drawLegend, sectionHeading, PDF_COLORS,
 } from '../lib/pdfCharts';
 import { buildCoverImage, stampCover } from '../lib/reportCover';
@@ -102,9 +102,14 @@ export default function MonthlyReport({ selectedMonth, selectedYear, selectedWeb
     );
   }, [tasks, isYearView, selectedMonth, selectedYear, selectedWebsite, filterEmployee]);
 
-  const totalTasks = filteredTasks.length;
-  const completedTasks = filteredTasks.filter(t => t.status === 'completed').length;
-  const carriedForwardTasks = filteredTasks.filter(isCarriedForward).length;
+  // Scheduled-only, same split Dashboard uses — additional tasks get their
+  // own card below rather than silently inflating "Total Scheduled". Every
+  // breakdown table further down (by category/employee/website, the
+  // month-by-month rollup) still reads filteredTasks directly and so still
+  // counts both kinds together, unaffected by this split.
+  const totalTasks = filteredTasks.filter(t => !t.isAdditional).length;
+  const completedTasks = filteredTasks.filter(t => !t.isAdditional && t.status === 'completed').length;
+  const carriedForwardTasks = filteredTasks.filter(t => !t.isAdditional && isCarriedForward(t)).length;
   // "Pending" now specifically means genuinely still open — no forward
   // motion taken — so it no longer silently absorbs carried-forward tasks.
   // completed + pending + carriedForwardTasks === totalTasks, always.
@@ -112,6 +117,8 @@ export default function MonthlyReport({ selectedMonth, selectedYear, selectedWeb
   // Unchanged: carrying a task forward doesn't mean it got done in this
   // period, so the rate keeps counting it as not-done, same as before.
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const additionalTasks = filteredTasks.filter(t => t.isAdditional).length;
+  const totalAllTasks = totalTasks + additionalTasks;
 
   // Hours scheduled (targeted) vs actually booked
   const totalTargetedHrs = sumTargeted(filteredTasks);
@@ -302,17 +309,25 @@ export default function MonthlyReport({ selectedMonth, selectedYear, selectedWeb
     const contentW = pageWidth - M * 2;
     let y = 24;
 
-    // Executive Summary — the four dashboard cards, then the remaining metrics
+    // Executive Summary — the six dashboard cards, then the remaining metrics
     y = sectionHeading(doc, 'Executive Summary', M, y);
     y = drawKpiCards(doc, {
       x: M, y, width: contentW,
       cards: [
-        { label: 'Total Scheduled', value: totalTasks, color: '#2563eb' },
+        { label: 'Total Tasks', value: totalAllTasks, color: '#0d9488' },
+        { label: 'Scheduled', value: totalTasks, color: '#2563eb' },
+        { label: 'Additional', value: additionalTasks, color: '#e11d48' },
         { label: 'Completed', value: completedTasks, color: '#16a34a' },
         { label: 'Pending', value: pendingTasks, color: '#d97706' },
         { label: 'Carried Fwd', value: carriedForwardTasks, color: '#0284c7' },
-        { label: 'Completion Rate', value: `${completionRate}%`, color: PDF_COLORS.PURPLE },
       ],
+    }) + 5;
+    y = drawCompletionCard(doc, {
+      x: M, y, width: contentW,
+      label: 'Completion Rate',
+      rate: completionRate,
+      detail: `${completedTasks} of ${totalTasks} tasks completed • ${Math.max(totalTasks - completedTasks, 0)} remaining`,
+      color: PDF_COLORS.PURPLE,
     }) + 9;
 
     autoTable(doc, {
@@ -595,7 +610,7 @@ export default function MonthlyReport({ selectedMonth, selectedYear, selectedWeb
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(148, 163, 184);
-      doc.text(`IFE - ${monthName}${filterEmployee !== 'all' ? ` - ${getEmployeeName(filterEmployee)}` : ''}`, M, ph - 7.5);
+      doc.text(`iFe Desk - ${monthName}${filterEmployee !== 'all' ? ` - ${getEmployeeName(filterEmployee)}` : ''}`, M, ph - 7.5);
       doc.text(`Page ${i - 1} of ${totalPages - 1}`, pw - M, ph - 7.5, { align: 'right' });
     }
 
@@ -632,13 +647,38 @@ export default function MonthlyReport({ selectedMonth, selectedYear, selectedWeb
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="kpi-grid" style={{ marginBottom: '24px' }}>
+      {/* Summary Cards — same 6-card set, order and colors as Dashboard's
+          KPI row, with Completion Rate pulled onto its own full-width row
+          below (also matching Dashboard). */}
+      <div className="kpi-grid" style={{ marginBottom: '20px' }}>
+        <div className="kpi-card purple"><div className="kpi-icon purple"><Layers size={22} /></div><div className="kpi-content"><div className="kpi-label">Total Tasks</div><div className="kpi-value">{totalAllTasks}</div></div></div>
         <div className="kpi-card blue"><div className="kpi-icon blue"><CalendarDays size={22} /></div><div className="kpi-content"><div className="kpi-label">Total Scheduled</div><div className="kpi-value">{totalTasks}</div></div></div>
+        <div className="kpi-card red"><div className="kpi-icon red"><ListPlus size={22} /></div><div className="kpi-content"><div className="kpi-label">Additional Tasks</div><div className="kpi-value">{additionalTasks}</div></div></div>
         <div className="kpi-card green"><div className="kpi-icon green"><CheckCircle2 size={22} /></div><div className="kpi-content"><div className="kpi-label">Completed</div><div className="kpi-value">{completedTasks}</div></div></div>
         <div className="kpi-card amber"><div className="kpi-icon amber"><Clock size={22} /></div><div className="kpi-content"><div className="kpi-label">Pending</div><div className="kpi-value">{pendingTasks}</div></div></div>
         <div className="kpi-card info"><div className="kpi-icon info"><ArrowRightCircle size={22} /></div><div className="kpi-content"><div className="kpi-label">Carried Forward</div><div className="kpi-value">{carriedForwardTasks}</div></div></div>
-        <div className="kpi-card purple"><div className="kpi-icon purple"><TrendingUp size={22} /></div><div className="kpi-content"><div className="kpi-label">Completion Rate</div><div className="kpi-value">{completionRate}%</div></div></div>
+      </div>
+
+      <div className="kpi-completion-row" style={{ marginBottom: '24px' }}>
+        <div className="kpi-card violet">
+          <div className="kpi-icon violet"><TrendingUp size={22} /></div>
+          <div className="completion-card-body">
+            <div className="completion-card-top">
+              <div>
+                <div className="kpi-label">Completion Rate</div>
+                <div className="kpi-value">{completionRate}%</div>
+              </div>
+              <div className="completion-card-detail">
+                <strong style={{ color: 'var(--text-primary)' }}>{completedTasks}</strong> of {totalTasks} tasks completed
+                <br />
+                {Math.max(totalTasks - completedTasks, 0)} remaining to reach 100%
+              </div>
+            </div>
+            <div className="completion-bar-track">
+              <div className="completion-bar-fill" style={{ width: `${completionRate}%` }} />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Month-by-Month (full-year view only) */}

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Edit3, X, Users, Globe, Save, Download, Upload, Mail, Briefcase, Tag, AlertCircle, AlertTriangle, Building2, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Edit3, X, Users, Globe, Save, Download, Upload, Mail, Briefcase, Tag, AlertCircle, AlertTriangle, Building2, ArrowLeft, FolderKanban } from 'lucide-react';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ModalPortal from '../components/ModalPortal';
 import AccessDenied from '../components/AccessDenied';
@@ -16,14 +16,19 @@ export default function Settings() {
     employees, websites, tasks, categories, addEmployee, updateEmployee, deleteEmployee,
     addWebsite, updateWebsite, deleteWebsite, addCategory, deleteCategory, isDefaultCategory,
     getCategoryColor, setCategoryColor, suggestCategoryColor,
-    exportData, importData, isCloud, teams, unitLabel, unitLabelPlural,
+    projects, addProject, updateProject, deleteProject,
+    exportData, importData, isCloud, teams, currentTeam, unitLabel, unitLabelPlural,
   } = useApp();
   const { isSuperAdmin, canViewAll, canManageTeam, setSelectedTeamId, myTeamId } = useAuth();
+  // Digital Marketing never has Projects — see supabase_projects_table.sql.
+  const showProjects = !currentTeam?.is_lead_source_team;
   const [activeSection, setActiveSection] = useState('employees');
   const [showEmpModal, setShowEmpModal] = useState(false);
   const [showSiteModal, setShowSiteModal] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
   const [editingEmp, setEditingEmp] = useState(null);
   const [editingSite, setEditingSite] = useState(null);
+  const [editingProject, setEditingProject] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [newCategory, setNewCategory] = useState('');
@@ -239,6 +244,12 @@ export default function Settings() {
               onClick={() => setActiveSection('categories')}>
               <Tag size={16} /> Categories ({categories.length})
             </div>
+            {showProjects && (
+              <div className={`tab-item ${activeSection === 'projects' ? 'active' : ''}`}
+                onClick={() => setActiveSection('projects')}>
+                <FolderKanban size={16} /> Projects ({projects.length})
+              </div>
+            )}
           </div>
 
       {/* EMPLOYEES SECTION — an org chart: lead(s) on top, a connector down
@@ -431,7 +442,7 @@ export default function Settings() {
 
               <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: '12px', lineHeight: 1.5 }}>
                 Each category needs its own colour - duplicates are rejected. New categories appear immediately in the
-                Schedule and Tasks Completed dropdowns, and in the Dashboard donut and Monthly Report once a task uses them.
+                Schedule and Task Status dropdowns, and in the Dashboard donut and Monthly Report once a task uses them.
               </p>
             </div>
           </div>
@@ -498,6 +509,56 @@ export default function Settings() {
           </div>
         </div>
       )}
+
+      {/* PROJECTS SECTION — each project belongs to exactly one {unitLabel}
+          (confirmed design, supabase_projects_table.sql); not offered for
+          Digital Marketing at all. */}
+      {showProjects && activeSection === 'projects' && (
+        <div>
+          {canManageTeam && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+              <button className="btn btn-primary" onClick={() => { setEditingProject(null); setShowProjectModal(true); }} disabled={websites.length === 0}>
+                <Plus size={16} /> Add Project
+              </button>
+            </div>
+          )}
+          {websites.length === 0 && (
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginBottom: '16px' }}>
+              Add a {unitLabel} first — every project belongs to one.
+            </p>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+            {projects.map(project => (
+              <div key={project.id} className="card" style={{ overflow: 'hidden' }}>
+                <div className="card-body" style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 'var(--radius-md)',
+                    background: 'var(--info-bg)', color: 'var(--info)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0
+                  }}><FolderKanban size={22} /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h4 style={{ fontSize: '1rem', marginBottom: '2px' }}>{project.name}</h4>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                      {websites.find(w => w.id === project.websiteId)?.name || 'Unknown'}
+                    </p>
+                    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{project.description || 'No description'}</p>
+                  </div>
+                  {canManageTeam && (
+                    <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                      <button className="btn-icon" onClick={() => { setEditingProject(project); setShowProjectModal(true); }}><Edit3 size={15} /></button>
+                      <button className="btn-icon" style={{ color: 'var(--danger)' }} onClick={() => {
+                        setConfirmDelete({ type: 'project', id: project.id, name: project.name });
+                      }}><Trash2 size={15} /></button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
         </>
       )}
 
@@ -528,6 +589,21 @@ export default function Settings() {
         />
       )}
 
+      {/* Project Modal */}
+      {showProjectModal && (
+        <ProjectModal
+          project={editingProject}
+          websites={websites}
+          unitLabel={unitLabel}
+          onSave={(data) => {
+            if (editingProject) updateProject(editingProject.id, data);
+            else addProject(data);
+            setShowProjectModal(false);
+          }}
+          onClose={() => setShowProjectModal(false)}
+        />
+      )}
+
       {categoryToDelete && (
         <DeleteCategoryModal
           category={categoryToDelete}
@@ -541,13 +617,15 @@ export default function Settings() {
 
       {confirmDelete && (
         <ConfirmDialog
-          title={`Delete ${confirmDelete.type === 'employee' ? 'Employee' : confirmDelete.type === 'category' ? 'Category' : unitLabel}`}
+          title={`Delete ${confirmDelete.type === 'employee' ? 'Employee' : confirmDelete.type === 'category' ? 'Category' : confirmDelete.type === 'project' ? 'Project' : unitLabel}`}
           message={`Are you sure you want to delete "${confirmDelete.name}"? This action cannot be undone.`}
           onConfirm={async () => {
             if (confirmDelete.type === 'employee') {
               await deleteEmployee(confirmDelete.id);
             } else if (confirmDelete.type === 'category') {
               deleteCategory(confirmDelete.id);
+            } else if (confirmDelete.type === 'project') {
+              await deleteProject(confirmDelete.id);
             } else {
               await deleteWebsite(confirmDelete.id);
             }
@@ -819,6 +897,59 @@ function EmployeeModal({ employee, onSave, onClose }) {
             <button type="submit" className="btn btn-primary"><Save size={16} /> Save</button>
           </div>
         </form>
+        </div>
+      </div>
+    </ModalPortal>
+  );
+}
+
+function ProjectModal({ project, websites, unitLabel, onSave, onClose }) {
+  const [form, setForm] = useState({
+    name: project?.name || '',
+    description: project?.description || '',
+    websiteId: project?.websiteId || websites[0]?.id || '',
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(form);
+  };
+
+  return (
+    <ModalPortal>
+      <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+        <div className="modal">
+          <div className="modal-header">
+            <h3>{project ? 'Edit Project' : 'Add Project'}</h3>
+            <button className="btn-icon" onClick={onClose}><X size={20} /></button>
+          </div>
+          <form onSubmit={handleSubmit}>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group">
+                <label className="form-label">{unitLabel} *</label>
+                <select className="form-select" required value={form.websiteId}
+                  onChange={e => setForm({ ...form, websiteId: e.target.value })}>
+                  {websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Project Name *</label>
+                <input className="form-input" required value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g., Website Redesign" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Description</label>
+                <input className="form-input" value={form.description}
+                  onChange={e => setForm({ ...form, description: e.target.value })}
+                  placeholder="e.g., Q1 homepage revamp" />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn-primary"><Save size={16} /> Save</button>
+            </div>
+          </form>
         </div>
       </div>
     </ModalPortal>

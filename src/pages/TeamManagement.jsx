@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { supabase } from '../lib/supabase';
 import { classifyDbError } from '../lib/dbErrors';
+import { callNotifyFunction } from '../lib/notifyFn';
 import { Plus, X, Save, Building2, Users, AlertCircle, Trash2 } from 'lucide-react';
 import ModalPortal from '../components/ModalPortal';
 import AccessDenied from '../components/AccessDenied';
@@ -163,6 +164,7 @@ export default function TeamManagement({ onOpenTeam }) {
 }
 
 function AddTeamModal({ onCreated, onClose }) {
+  const { session } = useAuth();
   const [form, setForm] = useState({
     name: '', adminName: '', adminDesignation: '', adminEmail: '',
   });
@@ -173,7 +175,8 @@ function AddTeamModal({ onCreated, onClose }) {
     e.preventDefault();
     setBusy(true);
     setError('');
-    const { error: rpcError } = await supabase.rpc('create_team_with_admin', {
+    const adminEmail = form.adminEmail.trim().toLowerCase();
+    const { data: newTeamId, error: rpcError } = await supabase.rpc('create_team_with_admin', {
       p_name: form.name.trim(),
       // Fixed, not user-entered — every team but Digital Marketing sees
       // "Company"/"Companies" (AppContext.jsx's unitLabel/unitLabelPlural),
@@ -184,13 +187,29 @@ function AddTeamModal({ onCreated, onClose }) {
       p_entity_label_plural: 'Companies',
       p_admin_name: form.adminName.trim(),
       p_admin_designation: form.adminDesignation.trim(),
-      p_admin_email: form.adminEmail.trim().toLowerCase(),
+      p_admin_email: adminEmail,
     });
     setBusy(false);
     if (rpcError) {
       const { message } = classifyDbError(rpcError);
       setError(message);
       return;
+    }
+    // create_team_with_admin only returns the new team's id, not the bootstrap
+    // admin's own row — it's inserted straight by the RPC, bypassing
+    // AppContext.jsx's addEmployee (where every OTHER employee add already
+    // triggers this same invite). Looked up here by the email just used to
+    // create it so this path isn't silently missing the invite too.
+    if (adminEmail) {
+      const { data: newAdmin } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('team_id', newTeamId)
+        .ilike('email', adminEmail)
+        .maybeSingle();
+      if (newAdmin?.id) {
+        callNotifyFunction('invite-employee', { employeeId: newAdmin.id }, session?.access_token);
+      }
     }
     onCreated();
   };

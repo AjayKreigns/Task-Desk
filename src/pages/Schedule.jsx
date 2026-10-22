@@ -10,12 +10,32 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { ArrowRightCircle } from 'lucide-react';
 import { getTaskPercent, getTaskPendingPercent, isTaskExceeded, getEffectiveStatus } from '../lib/taskProgress';
 import { sanitizeExcelRow } from '../lib/excelSafety';
+import { isPastPeriod } from '../lib/periodLock';
 import ModalPortal from '../components/ModalPortal';
 import PeriodToggle from '../components/PeriodToggle';
 
-export default function Schedule({ selectedMonth, selectedYear, selectedWebsite, intent, onIntentConsumed, filterEmployee, setFilterEmployee, filterCategory, setFilterCategory }) {
-  const { tasks, tasksById, employees, websites, categories, addTask, addBulkTasks, updateTask, deleteTask, getEmployeeName, getWebsiteName, unitLabel } = useApp();
-  const { canManageTeam, isViewer, canViewAll, myEmployeeId, isMe } = useAuth();
+// Shared by the carry-forward confirm dialog's message and the actual action
+// so the destination month is never computed two different ways.
+function getCarryForwardTarget(task, fallbackMonth, fallbackYear) {
+  let nextMonth = (task.month || fallbackMonth) + 1;
+  let nextYear = task.year || fallbackYear;
+  if (nextMonth > 12) { nextMonth = 1; nextYear++; }
+  return { nextMonth, nextYear };
+}
+
+export default function Schedule({ selectedMonth, selectedYear, selectedWebsite, selectedProject, intent, onIntentConsumed, filterEmployee, setFilterEmployee, filterCategory, setFilterCategory }) {
+  const { tasks, tasksById, employees, websites, categories, projects, addTask, addBulkTasks, updateTask, deleteTask, getEmployeeName, getWebsiteName, getProjectName, unitLabel, currentTeam } = useApp();
+  // Digital Marketing never has Projects — see supabase_projects_table.sql.
+  const showProjects = !currentTeam?.is_lead_source_team;
+  const { canManageTeam, isViewer, canViewAll, myEmployeeId, isMe, isSuperAdmin } = useAuth();
+  // Only a super admin may still add/edit/delete once a period has ended —
+  // a team's own admin (canManageTeam is true for both) is locked out too.
+  // Carry Forward is deliberately exempt (see executeCarryForward/its button
+  // below) — it's the normal way a stale past-month task gets resolved.
+  const periodLocked = isPastPeriod(selectedMonth, selectedYear) && !isSuperAdmin;
+  const periodLockedTitle = periodLocked
+    ? `Can't add tasks to ${new Date(selectedYear, selectedMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })} — it has ended`
+    : undefined;
   const { notify } = useNotification();
   const [showSingleModal, setShowSingleModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -23,6 +43,7 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
   const [editingTask, setEditingTask] = useState(null);
   const [detailTask, setDetailTask] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmCarryForward, setConfirmCarryForward] = useState(null);
   const [modalPos, setModalPos] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   // filterEmployee/filterCategory are lifted to App.jsx (passed down as
@@ -89,9 +110,10 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
     return tasks.filter(t =>
       (isYearView || t.month === selectedMonth) &&
       t.year === selectedYear &&
-      (selectedWebsite === 'all' || t.websiteId === selectedWebsite)
+      (selectedWebsite === 'all' || t.websiteId === selectedWebsite) &&
+      (selectedProject === 'all' || t.projectId === selectedProject)
     );
-  }, [tasks, isYearView, selectedMonth, selectedYear, selectedWebsite]);
+  }, [tasks, isYearView, selectedMonth, selectedYear, selectedWebsite, selectedProject]);
 
   const availableCategories = useMemo(() => {
     const inPeriod = new Set(periodTasks.map(t => t.category || 'General'));
@@ -152,15 +174,10 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
     setModalPos(null);
   };
 
-  const handleCarryForward = async (task) => {
+  const executeCarryForward = async (task) => {
     // Advance from the task's own month — in the full-year view the rows span
     // several months, so selectedMonth is not the right base.
-    let nextMonth = (task.month || selectedMonth) + 1;
-    let nextYear = task.year || selectedYear;
-    if (nextMonth > 12) {
-      nextMonth = 1;
-      nextYear++;
-    }
+    const { nextMonth, nextYear } = getCarryForwardTarget(task, selectedMonth, selectedYear);
 
     const newTask = {
       ...task,
@@ -194,6 +211,7 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
       ...(isYearView ? { 'Month': new Date(t.year, t.month - 1).toLocaleString('default', { month: 'short' }) } : {}),
       'Task': t.title, 'Category': t.category || 'General',
       'Assigned To': getEmployeeName(t.assignedTo), [unitLabel]: getWebsiteName(t.websiteId),
+      ...(showProjects ? { 'Project': t.projectId ? getProjectName(t.projectId) : '' } : {}),
       'Priority': t.priority || 'medium', 'Status': t.status,
       'Targeted Time (hrs)': t.targetedTime || '',
       'Reference URL': t.referenceUrl || '',
@@ -228,11 +246,11 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
               member's need; it's just locked to assigning themselves. */}
           {canManageTeam && (
             <>
-              <button className="btn btn-secondary" onClick={(e) => handleOpenModal(e, setShowUploadModal, true)}><Upload size={16} /> Upload Excel</button>
-              <button className="btn btn-secondary" onClick={(e) => handleOpenModal(e, setShowBulkModal, true)}><FileSpreadsheet size={16} /> Bulk Entry</button>
+              <button className="btn btn-secondary" disabled={periodLocked} title={periodLockedTitle} onClick={(e) => handleOpenModal(e, setShowUploadModal, true)}><Upload size={16} /> Upload Excel</button>
+              <button className="btn btn-secondary" disabled={periodLocked} title={periodLockedTitle} onClick={(e) => handleOpenModal(e, setShowBulkModal, true)}><FileSpreadsheet size={16} /> Bulk Entry</button>
             </>
           )}
-          {!isViewer && <button className="btn btn-primary" onClick={(e) => handleOpenModal(e, setShowSingleModal, true)}><Plus size={16} /> Add Task</button>}
+          {!isViewer && <button className="btn btn-primary" disabled={periodLocked} title={periodLockedTitle} onClick={(e) => handleOpenModal(e, setShowSingleModal, true)}><Plus size={16} /> Add Task</button>}
         </div>
       </div>
 
@@ -291,9 +309,11 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
             </div>
             <div className="card" style={{ overflowX: 'auto' }}>
               <table className="data-table">
-                <thead><tr><th>Task</th>{isYearView && <th>Month</th>}<th>Assigned To</th><th>{unitLabel}</th><th>Priority</th><th>Target Hrs</th><th>Status</th><th>URL</th><th style={{ width: 100 }}></th></tr></thead>
+                <thead><tr><th>Task</th>{isYearView && <th>Month</th>}<th>Assigned To</th><th>{unitLabel}</th>{showProjects && <th>Project</th>}<th>Priority</th><th>Target Hrs</th><th>Status</th><th>URL</th><th style={{ width: 100 }}></th></tr></thead>
                 <tbody>
-                  {catTasks.map(task => (
+                  {catTasks.map(task => {
+                    const rowLocked = isPastPeriod(task.month, task.year) && !isSuperAdmin;
+                    return (
                     <tr key={task.id}>
                       <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -316,6 +336,9 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
                         {getEmployeeName(task.assignedTo)}
                       </span></td>
                       <td><span style={{ fontSize: '0.825rem' }}>{getWebsiteName(task.websiteId)}</span></td>
+                      {showProjects && (
+                        <td><span style={{ fontSize: '0.825rem' }}>{task.projectId ? getProjectName(task.projectId) : <span style={{ color: 'var(--text-light)' }}>—</span>}</span></td>
+                      )}
                       <td><span className={`badge badge-${task.priority || 'medium'}`}>{task.priority || 'Medium'}</span></td>
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                         {task.targetedTime ? `${task.targetedTime} hrs` : <span style={{ color: 'var(--text-light)' }}>—</span>}
@@ -358,8 +381,11 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
                             them zero write access regardless of assigned_to. */}
                         {!isViewer && (
                           <>
-                            <button className="btn-icon" onClick={(e) => handleOpenModal(e, setEditingTask, task)} title="Edit"><Edit3 size={15} /></button>
-                            <button className="btn-icon" onClick={() => handleCarryForward(task)} title="Carry Forward to Next Month"><ArrowRightCircle size={15} style={{ color: 'var(--secondary)' }} /></button>
+                            <button className="btn-icon" disabled={rowLocked} title={rowLocked ? "This task's month has ended — only a super admin can edit it now" : "Edit"} onClick={(e) => handleOpenModal(e, setEditingTask, task)}><Edit3 size={15} /></button>
+                            {/* Carry Forward is deliberately NOT gated by rowLocked —
+                                it's the normal way a stale past-month task gets
+                                resolved, not an edit to the task in place. */}
+                            <button className="btn-icon" onClick={(e) => handleOpenModal(e, setConfirmCarryForward, task)} title="Carry Forward to Next Month"><ArrowRightCircle size={15} style={{ color: 'var(--secondary)' }} /></button>
                           </>
                         )}
                         {/* Matches the tasks DELETE policy exactly: admin, or the
@@ -367,11 +393,12 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
                             rather than disabled, so nobody sees a control that
                             would just be rejected by the database anyway. */}
                         {(canManageTeam || (!isViewer && isMe(task.assignedTo))) && (
-                          <button className="btn-icon" onClick={() => handleDelete(task)} title="Delete"><Trash2 size={15} /></button>
+                          <button className="btn-icon" disabled={rowLocked} title={rowLocked ? "This task's month has ended — only a super admin can delete it now" : "Delete"} onClick={() => handleDelete(task)}><Trash2 size={15} /></button>
                         )}
                       </div></td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -379,10 +406,10 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
         ))
       )}
 
-      {showSingleModal && <SingleTaskModal employees={employees} websites={websites} categories={categories} unitLabel={unitLabel} selectedMonth={selectedMonth} selectedYear={selectedYear} selectedWebsite={selectedWebsite} onAdd={handleAddTask} onClose={() => setShowSingleModal(false)} position={modalPos} />}
-      {showBulkModal && <BulkTaskModal employees={employees} websites={websites} categories={categories} unitLabel={unitLabel} selectedMonth={selectedMonth} selectedYear={selectedYear} onAdd={handleBulkAdd} onClose={() => setShowBulkModal(false)} position={modalPos} />}
-      {showUploadModal && <ExcelUploadModal employees={employees} websites={websites} categories={categories} unitLabel={unitLabel} selectedMonth={selectedMonth} selectedYear={selectedYear} onAdd={handleBulkAdd} onClose={() => setShowUploadModal(false)} position={modalPos} />}
-      {editingTask && <EditTaskModal task={editingTask} employees={employees} websites={websites} categories={categories} unitLabel={unitLabel} onSave={handleEditSave} onClose={() => setEditingTask(null)} position={modalPos} />}
+      {showSingleModal && <SingleTaskModal employees={employees} websites={websites} categories={categories} projects={projects} showProjects={showProjects} unitLabel={unitLabel} selectedMonth={selectedMonth} selectedYear={selectedYear} selectedWebsite={selectedWebsite} onAdd={handleAddTask} onClose={() => setShowSingleModal(false)} position={modalPos} />}
+      {showBulkModal && <BulkTaskModal employees={employees} websites={websites} categories={categories} projects={projects} showProjects={showProjects} unitLabel={unitLabel} selectedMonth={selectedMonth} selectedYear={selectedYear} onAdd={handleBulkAdd} onClose={() => setShowBulkModal(false)} position={modalPos} />}
+      {showUploadModal && <ExcelUploadModal employees={employees} websites={websites} categories={categories} projects={projects} showProjects={showProjects} unitLabel={unitLabel} selectedMonth={selectedMonth} selectedYear={selectedYear} onAdd={handleBulkAdd} onClose={() => setShowUploadModal(false)} position={modalPos} />}
+      {editingTask && <EditTaskModal task={editingTask} employees={employees} websites={websites} categories={categories} projects={projects} showProjects={showProjects} unitLabel={unitLabel} onSave={handleEditSave} onClose={() => setEditingTask(null)} position={modalPos} />}
       {detailTask && <TaskDetailModal task={detailTask} onClose={() => setDetailTask(null)} position={modalPos} />}
       {confirmDelete && (
         <ConfirmDialog
@@ -393,6 +420,21 @@ export default function Schedule({ selectedMonth, selectedYear, selectedWebsite,
           position={modalPos}
         />
       )}
+      {confirmCarryForward && (() => {
+        const { nextMonth, nextYear } = getCarryForwardTarget(confirmCarryForward, selectedMonth, selectedYear);
+        const monthLabel = new Date(nextYear, nextMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+        return (
+          <ConfirmDialog
+            title="Carry Forward Task?"
+            message={`Move "${confirmCarryForward.title}" to ${monthLabel}? A new pending task is created there, linked back to this one.`}
+            confirmLabel="Carry Forward"
+            tone="neutral"
+            onConfirm={async () => { await executeCarryForward(confirmCarryForward); setConfirmCarryForward(null); }}
+            onCancel={() => setConfirmCarryForward(null)}
+            position={modalPos}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -402,15 +444,21 @@ function CalendarIcon() {
 }
 
 // === EDIT TASK MODAL ===
-function EditTaskModal({ task, employees, websites, categories, unitLabel, onSave, onClose, position }) {
+function EditTaskModal({ task, employees, websites, categories, projects, showProjects, unitLabel, onSave, onClose, position }) {
   const { canManageTeam } = useAuth();
   const [form, setForm] = useState({
     title: task.title, category: task.category || 'SEO', assignedTo: task.assignedTo,
-    websiteId: task.websiteId, priority: task.priority || 'medium', referenceUrl: task.referenceUrl || '',
+    websiteId: task.websiteId, projectId: task.projectId || '', priority: task.priority || 'medium', referenceUrl: task.referenceUrl || '',
     targetedTime: task.targetedTime || '',
     month: task.month, year: task.year,
   });
   const { originStyle } = calcModalPosition(position);
+  const siteProjects = showProjects ? projects.filter(p => p.websiteId === form.websiteId) : [];
+  // Switching the company can orphan a project that belonged to the OLD one.
+  const handleWebsiteChange = (websiteId) => {
+    const stillValid = projects.some(p => p.id === form.projectId && p.websiteId === websiteId);
+    setForm({ ...form, websiteId, projectId: stillValid ? form.projectId : '' });
+  };
   const handleSubmit = (e) => { e.preventDefault(); onSave(task.id, form); };
   const modal = (
     <div className="modal" style={originStyle || {}}>
@@ -435,8 +483,17 @@ function EditTaskModal({ task, employees, websites, categories, unitLabel, onSav
                 <input className="form-input" value={employees.find(e => e.id === form.assignedTo)?.name || ''} disabled />
               )}
             </div>
-            <div className="form-group"><label className="form-label">{unitLabel}</label><select className="form-select" value={form.websiteId} onChange={e => setForm({ ...form, websiteId: e.target.value })}>{websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
+            <div className="form-group"><label className="form-label">{unitLabel}</label><select className="form-select" value={form.websiteId} onChange={e => handleWebsiteChange(e.target.value)}>{websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
           </div>
+          {showProjects && (
+            <div className="form-group">
+              <label className="form-label">Project</label>
+              <select className="form-select" value={form.projectId} onChange={e => setForm({ ...form, projectId: e.target.value })}>
+                <option value="">None</option>
+                {siteProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
             <div className="form-group"><label className="form-label">Reference URL</label><input className="form-input" type="url" value={form.referenceUrl} onChange={e => setForm({ ...form, referenceUrl: e.target.value })} placeholder="https://..." /></div>
             <div className="form-group"><label className="form-label">Targeted Time (hours)</label><input className="form-input" type="number" min="0" step="0.5" value={form.targetedTime} onChange={e => setForm({ ...form, targetedTime: e.target.value ? Number(e.target.value) : '' })} placeholder="e.g., 5" /></div>
@@ -456,13 +513,18 @@ function EditTaskModal({ task, employees, websites, categories, unitLabel, onSav
 }
 
 // === SINGLE TASK MODAL ===
-function SingleTaskModal({ employees, websites, categories, unitLabel, selectedMonth, selectedYear, selectedWebsite, onAdd, onClose, position }) {
+function SingleTaskModal({ employees, websites, categories, projects, showProjects, unitLabel, selectedMonth, selectedYear, selectedWebsite, onAdd, onClose, position }) {
   const { canManageTeam, myEmployeeId } = useAuth();
   // Members can only ever create a task assigned to themselves (the insert
   // policy checks this), so the field starts pre-filled with their own id
   // rather than empty.
-  const [form, setForm] = useState({ title: '', category: '', assignedTo: canManageTeam ? '' : (myEmployeeId || ''), websiteId: '', priority: 'medium', referenceUrl: '', targetedTime: '', month: selectedMonth, year: selectedYear });
+  const [form, setForm] = useState({ title: '', category: '', assignedTo: canManageTeam ? '' : (myEmployeeId || ''), websiteId: '', projectId: '', priority: 'medium', referenceUrl: '', targetedTime: '', month: selectedMonth, year: selectedYear });
   const { originStyle } = calcModalPosition(position);
+  const siteProjects = showProjects ? projects.filter(p => p.websiteId === form.websiteId) : [];
+  const handleWebsiteChange = (websiteId) => {
+    const stillValid = projects.some(p => p.id === form.projectId && p.websiteId === websiteId);
+    setForm({ ...form, websiteId, projectId: stillValid ? form.projectId : '' });
+  };
   const handleSubmit = (e) => { e.preventDefault(); onAdd(form); onClose(); };
   const modal = (
     <div className="modal" style={originStyle || {}}>
@@ -483,8 +545,17 @@ function SingleTaskModal({ employees, websites, categories, unitLabel, selectedM
                 <input className="form-input" value={employees.find(e => e.id === form.assignedTo)?.name || ''} disabled />
               )}
             </div>
-            <div className="form-group"><label className="form-label">{unitLabel} *</label><select className="form-select" required value={form.websiteId} onChange={e => setForm({ ...form, websiteId: e.target.value })}><option value="" disabled>Select {unitLabel}</option>{websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
+            <div className="form-group"><label className="form-label">{unitLabel} *</label><select className="form-select" required value={form.websiteId} onChange={e => handleWebsiteChange(e.target.value)}><option value="" disabled>Select {unitLabel}</option>{websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></div>
           </div>
+          {showProjects && (
+            <div className="form-group">
+              <label className="form-label">Project (Optional)</label>
+              <select className="form-select" value={form.projectId} onChange={e => setForm({ ...form, projectId: e.target.value })} disabled={!form.websiteId}>
+                <option value="">{form.websiteId ? 'None' : `Select a ${unitLabel} first`}</option>
+                {siteProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
             <div className="form-group"><label className="form-label">Reference URL (Optional)</label><input className="form-input" type="url" value={form.referenceUrl} onChange={e => setForm({ ...form, referenceUrl: e.target.value })} placeholder="https://..." /></div>
             <div className="form-group"><label className="form-label">Targeted Time (hrs)</label><input className="form-input" type="number" min="0" step="0.5" value={form.targetedTime} onChange={e => setForm({ ...form, targetedTime: e.target.value ? Number(e.target.value) : '' })} placeholder="e.g., 5" /></div>
@@ -504,11 +575,20 @@ function SingleTaskModal({ employees, websites, categories, unitLabel, selectedM
 }
 
 // === BULK TASK MODAL ===
-function BulkTaskModal({ employees, websites, categories, unitLabel, selectedMonth, selectedYear, onAdd, onClose, position }) {
-  const emptyRow = { title: '', category: categories[0] || 'Other', assignedTo: employees[0]?.id || '', websiteId: websites[0]?.id || '', priority: 'medium', referenceUrl: '', targetedTime: '' };
+function BulkTaskModal({ employees, websites, categories, projects, showProjects, unitLabel, selectedMonth, selectedYear, onAdd, onClose, position }) {
+  const emptyRow = { title: '', category: categories[0] || 'Other', assignedTo: employees[0]?.id || '', websiteId: websites[0]?.id || '', projectId: '', priority: 'medium', referenceUrl: '', targetedTime: '' };
   const [rows, setRows] = useState([{ ...emptyRow }, { ...emptyRow }, { ...emptyRow }, { ...emptyRow }, { ...emptyRow }]);
   const { originStyle } = calcModalPosition(position);
-  const updateRow = (idx, field, value) => { const u = [...rows]; u[idx] = { ...u[idx], [field]: value }; setRows(u); };
+  const updateRow = (idx, field, value) => {
+    const u = [...rows];
+    u[idx] = { ...u[idx], [field]: value };
+    // Switching a row's company can orphan a project that belonged to the OLD one.
+    if (field === 'websiteId') {
+      const stillValid = projects.some(p => p.id === u[idx].projectId && p.websiteId === value);
+      if (!stillValid) u[idx].projectId = '';
+    }
+    setRows(u);
+  };
   const addRow = () => setRows([...rows, { ...emptyRow }]);
   const removeRow = (idx) => setRows(rows.filter((_, i) => i !== idx));
   const handleSubmit = (e) => { e.preventDefault(); const valid = rows.filter(r => r.title.trim()); if (!valid.length) return; onAdd(valid.map(r => ({ ...r, month: selectedMonth, year: selectedYear }))); onClose(); };
@@ -518,7 +598,7 @@ function BulkTaskModal({ employees, websites, categories, unitLabel, selectedMon
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{ overflowX: 'auto' }}>
             <table className="data-table" style={{ fontSize: '0.82rem' }}>
-              <thead><tr><th>Task Title *</th><th>Category</th><th>Assigned To</th><th>{unitLabel}</th><th>Priority</th><th>Target Hrs</th><th style={{ width: 40 }}></th></tr></thead>
+              <thead><tr><th>Task Title *</th><th>Category</th><th>Assigned To</th><th>{unitLabel}</th>{showProjects && <th>Project</th>}<th>Priority</th><th>Target Hrs</th><th style={{ width: 40 }}></th></tr></thead>
               <tbody>
                 {rows.map((row, idx) => (
                   <tr key={idx}>
@@ -526,6 +606,12 @@ function BulkTaskModal({ employees, websites, categories, unitLabel, selectedMon
                     <td><select className="form-select" style={{ padding: '6px 8px', fontSize: '0.82rem' }} value={row.category} onChange={e => updateRow(idx, 'category', e.target.value)}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></td>
                     <td><select className="form-select" style={{ padding: '6px 8px', fontSize: '0.82rem' }} value={row.assignedTo} onChange={e => updateRow(idx, 'assignedTo', e.target.value)}>{employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}</option>)}</select></td>
                     <td><select className="form-select" style={{ padding: '6px 8px', fontSize: '0.82rem' }} value={row.websiteId} onChange={e => updateRow(idx, 'websiteId', e.target.value)}>{websites.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select></td>
+                    {showProjects && (
+                      <td><select className="form-select" style={{ padding: '6px 8px', fontSize: '0.82rem' }} value={row.projectId} onChange={e => updateRow(idx, 'projectId', e.target.value)}>
+                        <option value="">None</option>
+                        {projects.filter(p => p.websiteId === row.websiteId).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select></td>
+                    )}
                     <td><select className="form-select" style={{ padding: '6px 8px', fontSize: '0.82rem' }} value={row.priority} onChange={e => updateRow(idx, 'priority', e.target.value)}><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></td>
                     <td><input className="form-input" type="number" min="0" step="0.5" style={{ padding: '6px 10px', fontSize: '0.82rem', width: '70px' }} value={row.targetedTime} onChange={e => updateRow(idx, 'targetedTime', e.target.value ? Number(e.target.value) : '')} placeholder="Hrs" /></td>
                     <td><button type="button" className="btn-icon" onClick={() => removeRow(idx)}><Trash2 size={14} /></button></td>
@@ -549,7 +635,7 @@ function BulkTaskModal({ employees, websites, categories, unitLabel, selectedMon
 }
 
 // === EXCEL UPLOAD MODAL ===
-function ExcelUploadModal({ employees, websites, categories, unitLabel, selectedMonth, selectedYear, onAdd, onClose, position }) {
+function ExcelUploadModal({ employees, websites, categories, projects, showProjects, unitLabel, selectedMonth, selectedYear, onAdd, onClose, position }) {
   const [previewData, setPreviewData] = useState(null);
   const [error, setError] = useState('');
   const [dragOver, setDragOver] = useState(false);
@@ -573,11 +659,19 @@ function ExcelUploadModal({ employees, websites, categories, unitLabel, selected
           const siteName = (row[unitLabel] || row['Website'] || row['website'] || row['Site'] || '').toString().trim();
           const emp = employees.find(e => e.name.toLowerCase() === empName.toLowerCase());
           const site = websites.find(w => w.name.toLowerCase() === siteName.toLowerCase());
+          // Optional — unlike the company column, an unmatched project name
+          // is left blank rather than falling back to some other project,
+          // since "no project" is itself a perfectly valid, common case.
+          const projectName = showProjects ? (row['Project'] || row['project'] || '').toString().trim() : '';
+          const project = projectName
+            ? projects.find(p => p.websiteId === (site?.id || '') && p.name.toLowerCase() === projectName.toLowerCase())
+            : null;
           return {
             title: row['Task'] || row['task'] || row['Title'] || row['title'] || '',
             category: row['Category'] || row['category'] || 'Other',
             assignedTo: emp?.id || employees[0]?.id || '', assignedToName: emp?.name || empName || 'Unmatched',
             websiteId: site?.id || websites[0]?.id || '', websiteName: site?.name || siteName || 'Unmatched',
+            projectId: project?.id || '', projectName: project?.name || (projectName ? `${projectName} (not found)` : ''),
             priority: (row['Priority'] || row['priority'] || 'medium').toString().toLowerCase(),
             referenceUrl: row['URL'] || row['url'] || row['Reference URL'] || '',
             targetedTime: Number(row['Targeted Time'] || row['targetedTime'] || row['Time'] || 0) || '',
@@ -591,9 +685,9 @@ function ExcelUploadModal({ employees, websites, categories, unitLabel, selected
   };
 
   const handleDrop = (e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); };
-  const handleImport = () => { if (!previewData) return; onAdd(previewData.map(({ title, category, assignedTo, websiteId, priority, referenceUrl, targetedTime }) => ({ title, category, assignedTo, websiteId, priority, referenceUrl, targetedTime, month: selectedMonth, year: selectedYear }))); onClose(); };
+  const handleImport = () => { if (!previewData) return; onAdd(previewData.map(({ title, category, assignedTo, websiteId, projectId, priority, referenceUrl, targetedTime }) => ({ title, category, assignedTo, websiteId, projectId, priority, referenceUrl, targetedTime, month: selectedMonth, year: selectedYear }))); onClose(); };
   const downloadTemplate = () => {
-    const t = [{ 'Task': 'Write SEO Blog Post', 'Category': categories[0] || 'Other', 'Assigned To': employees[0]?.name || 'Employee', [unitLabel]: websites[0]?.name || 'example.com', 'Priority': 'high', 'URL': '', 'Targeted Time': 5 }];
+    const t = [{ 'Task': 'Write SEO Blog Post', 'Category': categories[0] || 'Other', 'Assigned To': employees[0]?.name || 'Employee', [unitLabel]: websites[0]?.name || 'example.com', ...(showProjects ? { 'Project': '' } : {}), 'Priority': 'high', 'URL': '', 'Targeted Time': 5 }];
     const ws = XLSX.utils.json_to_sheet(t); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Schedule'); XLSX.writeFile(wb, 'schedule_template.xlsx');
   };
 
@@ -611,7 +705,7 @@ function ExcelUploadModal({ employees, websites, categories, unitLabel, selected
               </div>
               {error && <div style={{ marginTop: '12px', padding: '10px 14px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}><AlertCircle size={16} /> {error}</div>}
               <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Columns: Task, Category, Assigned To, {unitLabel}, Priority, URL, Targeted Time</span>
+                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Columns: Task, Category, Assigned To, {unitLabel}{showProjects ? ', Project (optional)' : ''}, Priority, URL, Targeted Time</span>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={downloadTemplate}><FileSpreadsheet size={14} /> Download Template</button>
               </div>
             </>
@@ -623,12 +717,15 @@ function ExcelUploadModal({ employees, websites, categories, unitLabel, selected
               </div>
               <div style={{ maxHeight: '350px', overflow: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
                 <table className="data-table">
-                  <thead><tr><th>Task</th><th>Category</th><th>Assigned To</th><th>{unitLabel}</th><th>Priority</th><th>Match</th></tr></thead>
+                  <thead><tr><th>Task</th><th>Category</th><th>Assigned To</th><th>{unitLabel}</th>{showProjects && <th>Project</th>}<th>Priority</th><th>Match</th></tr></thead>
                   <tbody>{previewData.map((row, idx) => (
                     <tr key={idx}>
                       <td style={{ fontWeight: 500 }}>{row.title}</td><td>{row.category}</td>
                       <td style={{ color: row.matched ? 'inherit' : 'var(--warning)' }}>{row.assignedToName}</td>
                       <td style={{ color: row.matched ? 'inherit' : 'var(--warning)' }}>{row.websiteName}</td>
+                      {showProjects && (
+                        <td style={{ color: row.projectName && !row.projectId ? 'var(--warning)' : 'inherit' }}>{row.projectName || <span style={{ color: 'var(--text-light)' }}>—</span>}</td>
+                      )}
                       <td><span className={`badge badge-${row.priority}`}>{row.priority}</span></td>
                       <td>{row.matched ? <CheckCircle2 size={16} style={{ color: 'var(--success)' }} /> : <AlertCircle size={16} style={{ color: 'var(--warning)' }} />}</td>
                     </tr>
